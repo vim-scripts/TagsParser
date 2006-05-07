@@ -1,0 +1,53 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=1535
+
+
+The TagsParser plugin does two things.
+
+First it automatically updates the tag files when you write a file out (Dynamic Tags).  This is controlled by a path so that this does not happen for every file that you ever edit.  This way as soon as you save a file, you will be able to access tags via the usual vim methods ^], :tag, :ts, ^T, etc.  There are various options in the plugin that control which files to tag.  
+
+This is nice if you have a bunch of source that you are working on, and like to use ctags to navigate through your source, but get annoyed at manually re-tagging your source to pick up any new variables/functions/etc.
+
+Secondly, there is a tag viewer (the Tag Window) which uses the tag files created by the Dynamic Tag functionality of the script to display the tags that belong to the file you have open.  For C/C++ and Ada files, it will display the tags hierarchically, so for example, struct members get displayed below the struct they belong to.  This part of the script can be turned off if you prefer to only use the Dynamic Tags functionality.  There are many options which control what is displayed and how, and of course, these are all detailed in the included help file.
+
+Configuring the "TagsParserTagsPath" or "TagsParserProjectConfig" options can be difficult sometimes.  The ":TagsParserPrintPath" command can help you debug the normal tags path variable, but has not been updated to support debugging the project configurations yet.  See the "tagsparser-config" help file entry for more details, but this is the short version:
+
+The first important thing to keep in mind, is to use either unix-style slashes (/), or to 'escape' your windows-style slashes when using a double quoted path ("stuff\\foo").  Alternatively single quotes can be used instead ('stuff\foo').
+
+The second important thing to keep in mind is that the directories used in defining the project configuration root directories must be defined using the correct slash style for your platform.  So for example, MS windows users _must_ use "\" instead of "/".  Following is an project configuration setup:
+
+  let g:TagsParserProjectConfig = {}
+  let g:TagsParserProjectConfig['C:\Working\PRJ1\Software\Source Code'] = {}
+  let g:TagsParserProjectConfig['C:\Working\PRJ1\Software\Source Code'] = { 'tagsPath' : 'C:/Working/PRJ1/Software/Source Code/OBJ1,C:/Working/PRJ1/Software/Source Code/OBJ1/**,C:/Working/PRJ1/Software/Source Code/BSP,C:/Working/PRJ1/Software/Source Code/BSP/**' }
+  let g:TagsParserProjectConfig['C:\Working\PRJ2\Software\OBJ1'] = {}
+  let g:TagsParserProjectConfig['C:\Working\PRJ2\Software\OBJ1'] = { 'tagsPath' : 'C:/Working/PRJ2/Software/OBJ1,C:/Working/PRJ2/Software/OBJ1/**' }
+
+This plugin supports all filetypes that Exuberant Ctags supports, along with Ada.  For Ada support I have created an Ada Mode parser for Ctags.  You can find the latest version of that parser here: http://gnuada.svn.sourceforge.net/viewvc/gnuada/tags/ At the time that I am writing this version 4.1.0 was the latest and is in this directory: http://gnuada.svn.sourceforge.net/viewvc/gnuada/tags/ctags-ada-mode-4.1.0 Directions to install the ada.c file are in the file itself, or you can use the add_ada.vim file to do the necessary updates to the ctags source for you.
+
+There are many options that govern how the Tag Window appears, I have tried to setup the default options so that it will display nicely with out any customization, but if you so desire there should be many ways to adjust the way the window appears.
+
+Please email me with any questions you have or bugs you find.  I am also happy to take suggestions for features or options that would make this plugin more useful for you.
+
+-------- Notable Additions -------
+- Example configuration options in help file.
+
+- Tabpage support that actually works!  (I hope)...
+
+- Debugging functionality.
+
+- TagsParserCurrentFileCWD feature (added in an earlier release, but was missing from documentation.
+
+--- Previous Notable Additions ---
+- The big addition to version 0.9 is project configurations, these are only supported in Vim 7.0.  The full details can be gathered if you check the help page for "TagsParserProjectConfig", but a short version is here:
+Instead of one path variable ("TagsParserTagsPath"), now you can configure separate paths for different 'projects'.  A project is configured using a Vim hash (dictionary), where the root directory of a project is used as the hash key.  Then a TagsPath, TagsLib, and various other variables can be configured uniquely for every project.  This should reduce the time required to find tags in each project.
+
+- Tabpages are now supported when using the Tag Window functionality.  Also added some mappings to make it easier to navigate between tabs and buffers.  See "TagsParserCtrlTabUsage" for detailed information.
+
+- All commands have default key mappings (such as <leader>t<space> to toggle the Tag Window On and Off - :TagsParserToggle), and these can all be overridden by a user mapping.
+
+- The TagsParserSaveInterval variable now prevents tagging a file too frequently (default of 30 second wait period).
+
+- The TagsParserTagsDir variable can now be used to change the name of the directory that is created to store tag files in (default of ".tags").
+
+- The TagsParser functions are now autoloaded, hopefully this speeds up vim startup and reduces overhead when the TagsParser is not being used.
+
+- See "tagsparser-changelog" for more detailed information. 
