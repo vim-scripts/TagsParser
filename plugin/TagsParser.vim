@@ -1,19 +1,71 @@
-" File:         TagsParser.vim
+" File:         TagsParser.Vim
 " Description:  Dynamic file tagging and mini-window to display tags
-" Version:      0.3
-" Date:         May 05, 2006
+" Version:      0.4
+" Date:         June 11, 2006
 " Author:       A. Aaron Cornelius (ADotAaronDotCorneliusAtgmailDotcom)
 "
 " Installation:
-" ungzip and untar the TagsParser.tar.gz somewhere in your vim runtimepath
-" (typically this should be something like $HOME/.vim, $HOME/vimfiles or
-" $VIM/vimfiles) Once this is done run :helptags <dir>/doc where <dir> is the
-" directory that you ungziped and untarred the TagsParser.tar.gz archive in.
+" ungzip and untar The TagsParser.tar.gz somewhere in your Vim runtimepath
+" (typically this should be something like $HOME/.Vim, $HOME/vimfiles or
+" $VIM/vimfiles) Once this is done run :helptags <dir>/doc where <dir> is The
+" directory that you ungziped and untarred The TagsParser.tar.gz archive in.
 "
 " Usage:
-" For help on the usage of this plugin to :help TagsParser after you have
-" finished the installation steps.
+" For help on The usage of this plugin to :help TagsParser after you have
+" finished The installation steps.
 "
+" Changelog:
+" 0.4 - First bugfix release - 06/11/2006
+"
+" 06/09/2006 - Added some GCOV extensions (*.da, *.bb, *.bbg, *.gcov) to file
+"              exclude pattern.
+" 06/09/2006 - Added GNAT build artifact extension (*.ali) to file exclude
+"              pattern.
+" 06/09/2006 - Fixed some spelling errors in messages and comments.
+" 06/09/2006 - Added standard library extensions (*.a, *.so) to file exclude
+"              pattern.
+" 06/09/2006 - Changed include/exclude regular expressions into Vim regexps 
+"              instead of Perl regexps.
+" 06/08/2006 - Fixed issues with spaces in paths (mostly of... The root of it
+"              is when Ctags is using The external sort... at least on Win32).
+" 06/08/2006 - Fixed issue where tag files are created for directory names 
+"              when using The TagDir command.
+" 06/02/2006 - Added Copyright notice. 
+" 06/02/2006 - Fixed tag naming issue where if you have 
+"              TagsParserCtagsOptions* options defined, it messes up The name
+"              of The tag file.
+" 05/26/2006 - Added nospell to local TagWindow options for Vim 7.
+"
+" 0.3 - Initial Public Release - 05/07/2006
+"
+" Future Changes:
+" TODO: Move as much external code (Perl) to internal vimscript.
+"       - use Vim dictionary instead of Perl hash
+" TODO: Make compatible with Tab pages for Vim 7.
+" TODO: allow The definition of separate tag paths depending on The current 
+"       working directory
+" TODO: read in a file when doing TagDir so that The correct options are used 
+"       to tag The file
+"
+" Bug List:
+"
+"
+" Copyright (C) 2006 A. Aaron Cornelius
+"
+" This program is free software; you can redistribute it and/or
+" modify it under The terms of The GNU General Public License
+" as published by The Free Software Foundation; either version 2
+" of The License, or (at your option) any later version.
+"
+" This program is distributed in The hope that it will be useful,
+" but WITHOUT ANY WARRANTY; without even The implied warranty of
+" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See The
+" GNU General Public License for more details.
+"
+" You should have received a copy of The GNU General Public License
+" along with this program; if not, write to The Free Software
+" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+" USA.
 
 let s:cpoSave = &cpo
 set cpo&vim
@@ -25,13 +77,13 @@ endif
 let s:TagsParserLoaded = 1
 " >>>
 
-" Config
+" Configuration
 
 " Perl Check <<<
-if !has('perl')
+if !has('Perl')
   if !exists('g:TagsParserNoPerlWarning') || g:TagsParserNoPerlWarning == 0
     echomsg "You must have a perl enabled version of VIM to use full functionality of TagsParser plugin."
-    echomsg "(to disable this warning set the g:TagsParserNoPerlWarning variable to 1 in your .vimrc)"
+    echomsg "(to disable this warning set The g:TagsParserNoPerlWarning variable to 1 in your .vimrc)"
   endif
   finish
 endif
@@ -69,7 +121,7 @@ if !exists("g:TagsParserWindowTop")
   let g:TagsParserWindowTop = 0
 endif
 
-"based on the window position configuration variables, setup the tags window 
+"based on The window position configuration variables, setup the tags window 
 "split command
 if g:TagsParserWindowLeft != 1 && g:TagsParserHorizontalSplit != 1
   let s:TagsWindowPosition = "botright vertical"
@@ -130,42 +182,6 @@ else
   let s:cwdChanged = 0
 endif
 
-"if the find program has not been specified by a user level global define,
-"find the right find program.  But we have to make sure that if we are running
-"on windows that this is not the C:\WINDOWS\System32\find.exe, that is a
-"crappy dos find, not the nifty gnu find we need.
-if !exists("g:TagsParserFindProgram")
-  if executable("find")
-    let g:TagsParserFindProgram = "find"
-  elseif executable("/bin/find")
-    let g:TagsParserFindProgram = "/bin/find"
-  elseif executable("C:/cygwin/bin/find.exe")
-    let g:TagsParserFindProgram = "C:/cygwin/bin/find.exe"
-  elseif executable("find.exe")
-    let g:TagsParserFindProgram = "find.exe"
-  else
-    echomsg "TagsParser - find program not found, please install gnu " .
-          \"find.  If you are running windows, install cygwin " .
-          \"(http://www.cygwin.com/) and add " .
-          \"<Drive>:\cygwin\usr\bin\ to your windows PATH " .
-          \"environment variable.  OR specify the path to find " .
-          \"using the g:TagsParserFindProgram variable in your .vimrc"
-    finish
-  endif
-endif
-
-"make sure this is a gnu find, if it is not then print a msg and fail
-if system(g:TagsParserFindProgram . " --version") !~? "GNU find"
-  echomsg "TagsParser - find = " . g:TagsParserFindProgram . 
-        \" GNU find program not found please install " .
-        \"cygwin (http://www.cygwin.com/) and add " .
-        \"<Drive>:\\cygwin\\usr\\bin\\ to your windows PATH " .
-        \"environment variable.  OR specify the path to a GNU " .
-        \"find using the g:TagsParserFindProgram variable in " .
-        \"your .vimrc"
-  finish
-endif
-
 "if the tags program has not been specified by a user level global define,
 "find the right tags program.  This checks exuberant-ctags first to handle the
 "case where multiple tags programs are installed it is differentiated by an
@@ -200,31 +216,32 @@ if s:cwdChanged == 1
   cd C:\WINDOWS\SYSTEM32
 endif
 
-"These four patterns should be in a perl style regular expression... Check
-"http://www.perl.com/doc/manual/html/pod/perlre.html if you need a little
-"tutorial on the exact syntax of perl regexps.  Also ":help perl-patterns" for
-"vim documentation on how vim regexps differ from perl regexps.
-"
+"These variables are in Vim-style regular expressions, not per-style like they 
+"used to be.  See ":help usr_27.txt" and ":help regexp" for more information.
 "If the patterns are empty then they are considered disabled
 
 "Init the directory exclude pattern to remove any . or _ prefixed directories
 "because they are generally considered 'hidden'.  This will also have the
 "benefit of preventing the tagging of any .tags directories
 if !exists("g:TagsParserDirExcludePattern")
-  let g:TagsParserDirExcludePattern = '.+/\..+|.+/_.+|(?i:tmp)|(?i:temp)|' .
-        \ '(?:backup)'
+  let g:TagsParserDirExcludePattern = '.\+/\..\+\|.\+/_.\+\|\%(\ctmp\)\|' .
+        \ '\%(\ctemp\)\|\%(\cbackup\)'
 endif
 
 if !exists("g:TagsParserDirIncludePattern")
   let g:TagsParserDirIncludePattern = ""
 endif
 
-"Init the file exclude pattern to take care of typical object, backup, swap,
-"dependency and tag file names and extensions
+"Init the file exclude pattern to take care of typical object, library
+"backup, swap, dependency and tag file names and extensions, build artifacts, 
+"gcov extenstions, etc.
 if !exists("g:TagsParserFileExcludePattern")
-  let g:TagsParserFileExcludePattern = '^.*\.(?i:o)$|^.*\.(?i:obj)$|' .
-        \ '^.*\.(?i:d)$|^.*\.(?i:bak)$|^.*\.(?i:swp)$|^.+\~$|' .
-        \ '(?i:^core$)|(?i:^tags$)|^.*\.(?i:txt)$'
+  let g:TagsParserFileExcludePattern = '^.*\.\%(\co\)$\|^.*\.\%(\cobj\)$\|' .
+        \ '^.*\.\%(\ca\)$\|^.*\.\%(\cso\)$\|^.*\.\%(\cd\)$\|' .
+        \ '^.*\.\%(\cbak\)$\|^.*\.\%(\cswp\)$\|^.\+\~$\|' .
+        \ '^\%(\ccore\)$\|^\%(\ctags\)$\|^.*\.\%(\ctags\)$\|' .
+        \ '^.*\.\%(\ctxt\)$\|^.*\.\%(\cali\)$\|^.*\.\%(\cda\)$\|' .
+        \ '^.*\.\%(\cbb\)$\|^.*\.\%(\cbbg\)$\|^.*\.\%(\cgcov\)$'
 endif
 
 if !exists("g:TagsParserFileIncludePattern")
@@ -233,7 +250,7 @@ endif
 
 " >>>
 " Script Autocommands <<<
-" No matter what, always install the LastPositionJump autocommand, if enabled
+" No matter what, always install The LastPositionJump autocommand, if enabled
 if g:TagsParserLastPositionJump == 1
   au BufWinEnter * if line("'\"") > 0 && line("'\"") <= line("$") | exec "normal g`\"" | endif
 endif
@@ -241,31 +258,31 @@ endif
 if g:TagsParserOff == 0 && g:TagsParserNoTagWindow == 0
   augroup TagsParserAutoCommands
     autocmd!
-    "setup an autocommand that will expand the path described by g:MyTagsPath
-    "into a valid tag path
-    autocmd VimEnter * call <SID>TagsParserExpandMyTagsPath() |
-          \ call <SID>TagsParserPerformOp("open")
+    "setup an autocommand that will expand the path described by
+    "g:TagsParserTagsPath into a valid tag path
+    autocmd VimEnter * call <SID>TagsParserExpandTagsPath() |
+          \ call <SID>TagsParserPerformOp("open", "")
 
     "setup an autocommand so that when a file is written to it writes a tag
     "file if it a file that is somewhere within the tags path or the
-    "g:MyTagsPath path
-    autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag")
+    "g:TagsParserTagsPath path
+    autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag", "")
   augroup end
 
   augroup TagsParserBufWinEnterWindowNotOpen
-    autocmd BufWinEnter ?* call <SID>TagsParserPerformOp("open")
+    autocmd BufWinEnter ?* call <SID>TagsParserPerformOp("open", "")
   augroup end
 elseif g:TagsParserOff == 0 && g:TagsParserNoTagWindow == 1
   augroup TagsParserAutoCommands
     autocmd!
-    "setup an autocommand that will expand the path described by g:MyTagsPath
-    "into a valid tag path
-    autocmd VimEnter * call <SID>TagsParserExpandMyTagsPath()
+    "setup an autocommand that will expand the path described by
+    "g:TagsParserTagsPath into a valid tag path
+    autocmd VimEnter * call <SID>TagsParserExpandTagsPath()
 
     "setup an autocommand so that when a file is written to it writes a tag
     "file if it a file that is somewhere within the tags path or the
-    "g:MyTagsPath path
-    autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag")
+    "g:TagsParserTagsPath path
+    autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag", "")
   augroup end
 endif
 " >>>
@@ -275,7 +292,7 @@ endif
 command! -nargs=0 TagsParserToggle :call <SID>TagsParserToggle()
 nmap <leader>t<space> :TagsParserToggle<CR>
 
-command! -nargs=1 -complete=dir TagDir 
+command! -nargs=+ -complete=dir TagDir 
       \ :call <SID>TagsParserSetupDirectoryTags(<q-args>)
 
 " Turning TagsParser functionality completely off (and then back on)
@@ -284,7 +301,7 @@ nmap <leader>tof :TagsParserOff<CR>
 command! -nargs=0 TagsParserOn :call <SID>TagsParserOn()
 nmap <leader>ton :TagsParserOn<CR>
 
-" do a copen/cwindow so the quickfix window streches over the whole window
+" do a copen/cwindow so The quickfix window stretches over the whole window
 command! -nargs=* TagsParserCBot :botright copen <args>
 nmap <leader>tbo :TagsParserCBot<CR>
 command! -nargs=* TagsParserCBotWin :botright cwindow <args>
@@ -302,6 +319,15 @@ nmap <leader>tc :cclose
 " >>>
 " Initialization <<<
 
+" Check for any depreciated variables and options
+if exists("g:MyTagsPath")
+  echomsg "The MyTagsPath variable is depreciated, please use TagsParserTagsPath instead.\nThis path should be set in The same way that all VIM paths are, using commas instead of spaces.  Please see ':help path' for more information."
+endif
+
+if exists("g:TagsParserFindProgram")
+  echomsg "The TagsParserFindProgram variable is no longer necessary, you can remove it from your .vimrc"
+endif
+
 "if we are in the C:/WINDOWS/SYSTEM32 dir, change to C.  Odd things seem to
 "happen if we are in the system32 directory
 if has('win32') && getcwd() ==? 'C:\WINDOWS\SYSTEM32'
@@ -309,14 +335,6 @@ if has('win32') && getcwd() ==? 'C:\WINDOWS\SYSTEM32'
   cd C:\
 else
   let s:cwdChanged = 0
-endif
-
-" see which ctags we are using.  If we are using 5.5.4 enable taging and
-" parsing of local variables for c/c++ code
-if system(g:TagsParserTagsProgram . " --version") =~ "5\.5\.4"
-  let s:ckinds = "lpx"
-else
-  let s:ckinds = "px"
 endif
 
 if s:cwdChanged == 1
@@ -334,7 +352,7 @@ let s:lastFileDisplayed = ""
 
 let s:newBufBeingCreated = 0
 
-"setup a the mappings to handle single click
+"setup the mappings to handle single click
 if g:TagsParserSingleClick == 1
   let s:clickmap = ':if bufname("%") == g:TagsParserWindowName <bar> call <SID>TagsParserSelectTag() <bar> endif <CR>'
   if maparg('<LeftMouse>', 'n') == '' 
@@ -602,7 +620,7 @@ perl << PerlFunc
                             tcl => \@tclTypes,
                             vera => \@veraTypes, 
                             verilog => \@verilogTypes, 
-                            vim => \@vimTypes,
+                            Vim => \@vimTypes,
                             yacc => \@yaccTypes ) unless(%typeMap);
 
   # create a subtype hash, much like the typeMap.  This will list what
@@ -693,126 +711,60 @@ call <SID>TagsParserPerlInit()
 
 " Functions
 
-" TagsParserPerformOp - Checks that the current file is in the tag path <<<
+" TagsParserPerformOp - Checks that The current file is in the tag path <<<
 " Based on the input, it will either open the tag window or tag the file.
 " For either op, it will make sure that the current file is within the
-" g:MyTagsPath path, and then perform some additional checks based on the
-" operation it is supposed to perform
-function! <SID>TagsParserPerformOp(op)
-  "before we check to see if this file is in within MyTagsPath, do the simple
-  "checks to see if this file name and/or path meet the include or exclude
-  "criteria, we use perl here so that we don't have to worry about the
-  "inconsistencies between perl and vim regular expressions
-perl << PerlFunc
-  use strict;
-  use warnings;
-  use File::Glob ':glob';
-  no warnings 'redefine';
+" g:TagsParserTagsPath path, and then perform some additional checks based on
+" the operation it is supposed to perform
+function! <SID>TagsParserPerformOp(op, file)
+  if a:file == ""
+    let l:pathName = expand("%:p:h")
+    let l:fileName = expand("%:t")
+    let l:curFile = expand("%:p")
+  else
+    let l:pathName = fnamemodify(a:file, ":p:h")
+    let l:fileName = fnamemodify(a:file, ":t")
+    let l:curFile = fnamemodify(a:file, ":p")
+  endif
 
-  my ($success, $dirExcludePattern) =
-    VIM::Eval('g:TagsParserDirExcludePattern');
-  die "Failed to access directory exclude pattern" if !$success; 
-
-  ($success, my $fileExcludePattern) =
-    VIM::Eval('g:TagsParserFileExcludePattern');
-  die "Failed to access file exclude pattern" if !$success; 
-
-  ($success, my $dirIncludePattern) =
-    VIM::Eval('g:TagsParserDirIncludePattern');
-  die "Failed to access directory include pattern" if !$success; 
-
-  ($success, my $fileIncludePattern) =
-    VIM::Eval('g:TagsParserFileIncludePattern');
-  die "Failed to access file include pattern" if !$success; 
-
-  ($success, my $path) = VIM::Eval('expand("%:h")');
-  die "Failed to access current file path" if !$success; 
-
-  ($success, my $filename) = VIM::Eval('expand("%:t")');
-  die "Failed to access current file filename" if !$success; 
-
-  # before we create a tag for this file, check the include and exclude
-  # critera
-  return if ((($dirExcludePattern ne "") and
-    ($path =~ /$dirExcludePattern/)) or
-    (($fileExcludePattern ne "") and
-    ($filename =~ /$fileExcludePattern/)) or
-    (($dirIncludePattern ne "") and
-    ($path !~ /$dirIncludePattern/)) or
-    (($fileIncludePattern ne "") and
-    ($filename !~ /$fileIncludePattern/)));
-
-  # seperate checks which are useful for debugging why a file is or is not
-  # getting tagged contrary to your expectations
-  #
-  #if (($dirExcludePattern ne "") and
-  #  ($path =~ /$dirExcludePattern/)) {
-  #  VIM::Msg("$path matches dir exclude pattern");
-  #  return;
-  #}
-  #if (($fileExcludePattern ne "") and
-  #  ($filename =~ /$fileExcludePattern/)) {
-  #  VIM::Msg("$filename matches file exclude pattern");
-  #  return;
-  #}
-  #if (($dirIncludePattern ne "") and
-  #  ($path !~ /$dirIncludePattern/)) {
-  #  VIM::Msg("$path does not match directory include pattern");
-  #  return;
-  #}
-  #if (($fileIncludePattern ne "") and
-  #  ($filename !~ /$fileIncludePattern/)) {
-  #  VIM::Msg("$filename does not match file include pattern");
-  #  return;
-  #}
-
-  # remove non-existant directories from the MyTagsPath before trying to do a
-  # find on that path
-  ($success, my $tagsPath) = VIM::Eval("g:MyTagsPath");
-  return if !$success;
-
-  my $tmpTagsPath = "";
-
-  foreach my $dir (split(/ /, $tagsPath)) {
-    $dir = bsd_glob($dir, GLOB_TILDE);
-    $tmpTagsPath .= "$dir " if (-d $dir);
-  }
-
-  # now export the cleaned up tags path to a VIM local variable
-  VIM::DoCommand "let l:tmpTagsPath = '$tmpTagsPath'";
-PerlFunc
-
-  "if the perl function bailed early, we should also stop
-  if !exists('l:tmpTagsPath')
+  "Make sure that the file we are working on is _not_ a directory
+  if isdirectory(l:curFile)
     return
   endif
 
-  "if this is running on win32, make the find case insensitive
-  if has('win32')
-    let l:wholenamePart = " -iwholename \""
-  else
-    let l:wholenamePart = " -wholename \""
+  "before we check to see if this file is in within TagsParserTagsPath, do the 
+  "simple checks to see if this file name and/or path meet the include or
+  "exclude criteria
+  "The general logic here is, if the pattern is not empty (therefore not
+  "disabled), and an exclude pattern matches, or an include pattern fails to 
+  "match, return early.
+  if (g:TagsParserDirExcludePattern != "" && l:pathName =~ g:TagsParserDirExcludePattern) || (g:TagsParserFileExcludePattern != "" && l:fileName =~ g:TagsParserFileExcludePattern) || (g:TagsParserDirIncludePattern != "" && l:pathName !~ g:TagsParserDirIncludePattern) || (g:TagsParserFileIncludePattern != "" && l:fileName !~ g:TagsParserFileIncludePattern)
+    return
   endif
 
-  "verify that the current file is located within the one of the directories
-  "in g:MyTagsPath before we create a tags file, use the subsittute command
-  "to clean up the directory notation since the find command may be sensitive 
-  "to the way directory slashes are used
-  if system(substitute(g:TagsParserFindProgram . " " . l:tmpTagsPath .
-        \ l:wholenamePart . expand("%:p") . "\"", "\\", "\/", "g")) != ""
-    if a:op == "tag"
-      call <SID>TagsParserTagFile("")
-    elseif a:op == "open" && g:TagsParserAutoOpenClose == 1 &&
-          \ filereadable(expand("%:p:h") . "/.tags/" .
-          \ substitute(expand("%:t"), " ", "_", "g") . ".tags") &&
-          \ &filetype =~ s:supportedFileTypes
-      call <SID>TagsParserOpenTagWindow()
+  if exists("g:TagsParserTagsPath")
+    let l:tagPathFileMatch = globpath(g:TagsParserTagsPath, l:fileName)
+  
+    " Put the path, and file into lowercase if this is windows... Since 
+    " windows filenames are case-insensitive.
+    if has('win32')
+      let l:curFile = tolower(l:curFile)
+      let l:tagPathFileMatch = tolower(l:tagPathFileMatch)
+    endif
+
+    " See if the file is within the current path
+    if stridx(l:tagPathFileMatch, l:curFile) != -1
+      if a:op == "tag"
+        call <SID>TagsParserTagFile(a:file)
+      elseif a:op == "open" && g:TagsParserAutoOpenClose == 1 && filereadable(l:pathName . "/.tags/" .  substitute(l:fileName, " ", "_", "g") . ".tags") && &filetype =~ s:supportedFileTypes
+        call <SID>TagsParserOpenTagWindow()
+      endif
     endif
   endif
 endfunction
 " >>>
-" TagsParserTagFile - Runs tags on a file and names the tag file <<<
-" this function will run ctags for a file and write it to
+" TagsParserTagFile - Runs tags on a file and names The tag file <<<
+" this function will run Ctags for a file and write it to
 " ./.tags/<file>.tags it will also create the ./.tags directory if it doesn't
 " exist
 function! <SID>TagsParserTagFile(file)
@@ -835,8 +787,9 @@ function! <SID>TagsParserTagFile(file)
   "cleanup the tagfile, regular file and directory names, we have to replace
   "spaces in the actual file name with underscores for the tag file, or else
   "the sort option throws an error for some reason
+  let l:baseDir = substitute(fnamemodify(l:fileName, ":h"), '\', '/', 'g')
   let l:tagDir = substitute(fnamemodify(l:fileName, ":h") . "/.tags", '\', '/', 'g')
-  let l:tagFileName = substitute(fnamemodify(l:fileName, ":h") . "/.tags/" . substitute(fnamemodify(l:fileName, ":t"), ' ', '_', 'g') . ".tags", '\', '/', 'g')
+  let l:tagFileName = substitute(fnamemodify(l:fileName, ":h") . "/.tags/" . fnamemodify(l:fileName, ":t") . ".tags", '\', '/', 'g')
   let l:fileName = substitute(l:fileName, '\', '/', 'g')
 
   "make the .tags directory if it doesn't exist yet
@@ -859,7 +812,7 @@ function! <SID>TagsParserTagFile(file)
   endif
 
   "now run the tags program
-  exec system(g:TagsParserTagsProgram . " -f " . l:tagFileName . g:TagsParserCtagsOptions . l:userOptions . " --format=2 --excmd=p --fields=+nS --sort=yes --tag-relative=yes \"" . l:fileName . "\"")
+  exec system(g:TagsParserTagsProgram . " -f \"" . l:tagFileName . "\" " . g:TagsParserCtagsOptions . " " . l:userOptions . " --format=2 --excmd=p --fields=+nS --sort=yes --tag-relative=yes \"" . l:fileName . "\"")
 
   if s:cwdChanged == 1
     cd C:\WINDOWS\SYSTEM32
@@ -872,85 +825,28 @@ function! <SID>TagsParserTagFile(file)
   endif
 
   "if this file did not have a .tags/*.tags file up until this point and
-  "now it does call <SID>TagsParserExpandMyTagsPath to get the new file included
+  "now it does call <SID>TagsParserExpandTagsPath to get the new file included
   if l:noTagFile == "true" && l:tagFileExists == "true"
-    call <SID>TagsParserExpandMyTagsPath()
+    call <SID>TagsParserExpandTagsPath()
   endif
 endfunction
 " >>>
-" TagsParserExpandMyTagsPath - Expands a directory into a list of tag files <<< 
-" This will expand the g:MyTagsPath directory list into valid tag files
-function! <SID>TagsParserExpandMyTagsPath()
+" TagsParserExpandTagsPath - Expands a directory into a list of tags <<< 
+" This will expand The g:TagsParserTagsPath directory list into valid tag
+" files
+function! <SID>TagsParserExpandTagsPath()
   if !exists("s:OldTagsPath")
     let s:OldTagsPath = &tags
   endif
 
-  if exists("g:MyTagsPath")
-perl << perlFunc
-  use strict;
-  use warnings;
-  use File::Glob ':glob';
-  no warnings 'redefine';
-
-  # remove non-existant directories from the MyTagsPath before trying to do a
-  # find on that path
-  my ($success, $tagsPath) = VIM::Eval("g:MyTagsPath");
-  die "Failed to access g:MyTagsPath variable" if !$success;
-
-  my $tmpTagsPath = "";
-
-  foreach my $dir (split(/ /, $tagsPath)) {
-    $dir = bsd_glob($dir, GLOB_TILDE);
-    $tmpTagsPath .= "$dir " if (-d $dir);
-  }
-
-  # now export the cleaned up tags path to a VIM local variable
-  VIM::DoCommand "let l:tmpTagsPath = '$tmpTagsPath'";
-perlFunc
-    if has('win32')
-      let l:wholenamePart = " -iwholename"
-    else
-      let l:wholenamePart = " -wholename"
-    endif
-  
-    "if we are in the C:/WINDOWS/SYSTEM32 dir, change to C.  Odd things seem to
-    "happen if we are in the system32 directory
-    if has('win32') && getcwd() ==? 'C:\WINDOWS\SYSTEM32'
-      let s:cwdChanged = 1
-      cd C:\
-    else
-      let s:cwdChanged = 0
-    endif
-
-    "now find all .tags/*.tags files in that path
-    let l:step1 = system(g:TagsParserFindProgram . " " . l:tmpTagsPath . l:wholenamePart . " \"*.tags/*.tags\"")
-
-    if s:cwdChanged == 1
-      cd C:\WINDOWS\SYSTEM32
-    endif
-
-    "drop the last "\n" off the end of the path
-    let l:step2 = strpart(l:step1, 0, strlen(l:step1) - 1)
-
-    "escape any commas in these files names with "\\,"
-    "see ":help tags-option" for info about why
-    let l:step3 = substitute(l:step2, " ", "\\\\ ", "g")
-
-    "escape any spaces in the path names with "\\\ " 
-    "see ":help tags-option" for info about why
-    let l:step4 = substitute(l:step3, " ", "\\\\\\ ", "g")
-
-    "replace newlines with commas
-    let l:step5 = substitute(l:step4, "\n", ",", "g")
-
-    "set the tags path to be l:step5 plus the original tags files
-    let &tags = l:step5 . "," . s:OldTagsPath
+  if exists("g:TagsParserTagsPath")
+    let &tags = join(split(globpath(g:TagsParserTagsPath, '/.tags/*.tags'), '\n'), ",") . "," . s:OldTagsPath
   endif
 endfunction
 " >>>
 " TagsParserSetupDirectoryTags - creates tags for all files in this dir <<<
 " This takes a directory as a parameter and creates tag files for all files
-" under this directory based on the same include/exclude rules that are uesd
+" under this directory based on The same include/exclude rules that are used
 " when a file is written out.  Except that this function does not need to
 " follow the TagsParserPath rules.
 function! <SID>TagsParserSetupDirectoryTags(dir)
@@ -961,30 +857,17 @@ function! <SID>TagsParserSetupDirectoryTags(dir)
   endif
 
   "make sure that a:dir does not contain \\ but contains /
-  let l:dir = substitute(expand(a:dir), "\\", "\/", "g")
+  let l:dir = substitute(expand(a:dir), '\', '/', "g")
 
   if !isdirectory(l:dir)
     echomsg "Directory provided : " . l:dir . " is not a valid directory"
     return
   endif
-  
-  "if we are in the C:/WINDOWS/SYSTEM32 dir, change to C.  Odd things seem to
-  "happen if we are in the system32 directory
-  if has('win32') && getcwd() ==? 'C:\WINDOWS\SYSTEM32'
-    let s:cwdChanged = 1
-    cd C:\
-  else
-    let s:cwdChanged = 0
-  endif
 
-  "find all files under a:dir
-  let l:fileList = system(g:TagsParserFindProgram . " " . l:dir)
+  "find all files in this directory and all subdirectories
+  let l:fileList = globpath(l:dir . '/**,' . l:dir, '*')
 
-  if s:cwdChanged == 1
-    cd C:\WINDOWS\SYSTEM32
-  endif
-
-  "now parse those into seperate files using perl and then call the
+  "now parse those into separate files using Perl and then call the
   "TagFile for each file to give it a tag list
 perl << PerlFunc
   use strict;
@@ -994,73 +877,16 @@ perl << PerlFunc
   my ($success, $files) = VIM::Eval('l:fileList');
   die "Failed to access list of files to tag" if !$success; 
 
-  ($success, my $dirExcludePattern) =
-    VIM::Eval('g:TagsParserDirExcludePattern');
-  die "Failed to access directory exclude pattern" if !$success; 
-
-  ($success, my $fileExcludePattern) =
-    VIM::Eval('g:TagsParserFileExcludePattern');
-  die "Failed to access file exclude pattern" if !$success; 
-
-  ($success, my $dirIncludePattern) =
-    VIM::Eval('g:TagsParserDirIncludePattern');
-  die "Failed to access directory include pattern" if !$success; 
-
-  ($success, my $fileIncludePattern) =
-    VIM::Eval('g:TagsParserFileIncludePattern');
-  die "Failed to access file include pattern" if !$success; 
-
   foreach my $file (split(/\n/, $files)) {
-    # if this is a directory then just go to the next loop, there is no
-    # need to try tagging directories
-    next if (-d $file);
-
-    my ($path, $filename) = split /\/(?!.*\/)/, $file;
-
-    # before we create a tag for this file, check the include and exclude
-    # critera
-    next if ((($dirExcludePattern ne "") and
-      ($path =~ /$dirExcludePattern/)) or
-      (($fileExcludePattern ne "") and
-      ($filename =~ /$fileExcludePattern/)) or
-      (($dirIncludePattern ne "") and
-      ($path !~ /$dirIncludePattern/)) or
-      (($fileIncludePattern ne "") and
-      ($filename !~ /$fileIncludePattern/)));
-
-    # seperate checks which are useful for debugging why a file is or is
-    # not getting tagged contrary to your expectations
-    #
-    #if (($dirExcludePattern ne "") and
-    #  ($path =~ /$dirExcludePattern/)) {
-    #  VIM::Msg("$path matches dir exclude pattern");
-    #  next;
-    #}
-    #if (($fileExcludePattern ne "") and
-    #  ($filename =~ /$fileExcludePattern/)) {
-    #  VIM::Msg("$filename matches file exclude my pattern");
-    #  next;
-    #}
-    #if (($dirIncludePattern ne "") and
-    #  ($path !~ /$dirIncludePattern/)) {
-    #  VIM::Msg("$path does not match directory include pattern");
-    #  next;
-    #}
-    #if (($fileIncludePattern ne "") and
-    #  ($filename !~ /$fileIncludePattern/)) {
-    #  VIM::Msg("$filename does not match file include pattern");
-    #  next;
-    #}
-
-    VIM::DoCommand "call <SID>TagsParserTagFile(\"" . $file . "\")";
+    VIM::DoCommand "call <SID>TagsParserPerformOp('tag', '" . $file . "')";
   }
 PerlFunc
 endfunction
 " >>>
-" TagsParserDisplayTags - This will display the tags for the current file <<<
+" TagsParserDisplayTags - This will display The tags for the current file <<<
 function! <SID>TagsParserDisplayTags()
   "For some reason the ->Append(), ->Set() and ->Delete() functions don't
-  "work unless the perl buffer object is the current buffer... so, change
+  "work unless the Perl buffer object is the current buffer... So, change
   "to the tags buffer.
   let l:tagBufNum = bufnr(g:TagsParserWindowName)
   if l:tagBufNum == -1
@@ -1076,8 +902,7 @@ function! <SID>TagsParserDisplayTags()
     "it for us
     let s:origFileType = &filetype
     let s:origFileName = expand("%:t")
-    let s:origFileTagFileName = expand("%:p:h") . "/.tags/" .
-          \ substitute(expand("%:t"), ' ', '_', 'g') . ".tags"
+    let s:origFileTagFileName = expand("%:p:h") . "/.tags/" . expand("%:t") . ".tags"
     let s:origWinNum = winnr()
     exec bufwinnr(l:tagBufNum) . "wincmd w"
   endif
@@ -1117,7 +942,7 @@ perl << PerlFunc
   # make sure that %tags is created (or referenced)
   our %tags : unique unless (%tags);
 
-  # temp array to store our tag info... at the end of the file we will check
+  # temp array to store our tag info... At the end of the file we will check
   # to see if this is different than the globalPrintData, if it is we update
   # the screen, if not then we do nothing so as to maintain any folded sections
   # the user has created.
@@ -1154,7 +979,7 @@ perl << PerlFunc
     }
 
     # each tag must have a {{{ at the end of it or else it could mess with the
-    # folding... since there are no end folds each tag must have a fold marker
+    # folding... Since there are no end folds each tag must have a fold marker
     push @printData, [ ("\t" x $localPrintLevel) . $dispString .
       " {{{" . ($localPrintLevel + 1), $entryRef ];
 
@@ -1247,13 +1072,13 @@ perl << PerlFunc
     }
   }
 
-  # this hash will be used to keep all of the data referenceable... so that we
+  # this hash will be used to keep all of the data referenceable... So that we
   # will be able to print the correct information, reach that info when the tag
   # is to be selected, and find the current tag that the cursor is on in the
   # main window
   our @globalPrintData : unique = ( ) unless(@globalPrintData);
 
-  # check the last file displayed... if it is blank then this is a forced
+  # check the last file displayed... If it is blank then this is a forced
   # update
   ($success, my $lastFileDisplayed) = VIM::Eval('s:lastFileDisplayed');
   die "Failed to access last file displayed" if !$success;
@@ -1267,7 +1092,7 @@ perl << PerlFunc
         $update = 1;
       }
       # no matter if the display data changed or not, make sure to assign the
-      # tag reference to the global data... otherwise things like line numbers
+      # tag reference to the global data... Otherwise things like line numbers
       # may have changed and the tag window would not have the proper data
       $globalPrintData[$index][1] = $printData[$index][1];
     }
@@ -1355,15 +1180,14 @@ PerlFunc
   endif
 endfunction
 " >>>
-" TagsParserParseCurrentFile - parses the tags file for the current file <<<
+" TagsParserParseCurrentFile - parses The tags file for the current file <<<
 " This takes the current file, parses the tag file (if it has not been
 " parsed yet, or the tag file has been updated), and saves it into a global
-" perl hash struct for use by the function which prints out the data
+" Perl hash struct for use by the function which prints out the data
 function! <SID>TagsParserParseCurrentFile()
   "get the name of the tag file to parse, for the tag file name itself,
   "replace any spaces in the original filename with underscores
-  let l:tagFileName = expand("%:p:h") . "/.tags/" .
-        \ substitute(expand("%:t"), ' ', '_', 'g') . ".tags"
+  let l:tagFileName = expand("%:p:h") . "/.tags/" . expand("%:t") . ".tags"
 
   "make sure that the tag file exists before we start this
   if !filereadable(l:tagFileName)
@@ -1412,7 +1236,7 @@ perl << PerlFunc
     chomp;
 
     # split the stuff around the pattern with tabs, and remove the pattern
-    # using the special seperator ;" character sequence to guard against the
+    # using the special separator ;" character sequence to guard against the
     # possibility of embedded tabs in the pattern
     my ($tag, $file, $rest) = split(/\t/, $_, 3);
     (my $pattern, $rest) = split(/;"\t/, $rest, 2);
@@ -1428,11 +1252,11 @@ perl << PerlFunc
       $pattern =~ s|/\^(.*)/|$1|;
     }
 
-    # there may be some escaped /'s in the pattern, unescape them
+    # there may be some escaped /'s in the pattern, un-escape them
     $pattern =~ s|\\/|/|g;
 
     # if the " file:" tag is here, remove it, we want it to be in the file
-    # since vim can use the file: field to know if something is file static,
+    # since Vim can use the file: field to know if something is file static,
     # but we don't care about it much for this script, and it messes up my
     # hash creation
     $fields =~ s/\tfile://;
@@ -1452,7 +1276,7 @@ perl << PerlFunc
     }
   }
 
-  # setup the kind mappings for types that have memeber-types
+  # setup the kind mappings for types that have member-types
   our %adaKinds : unique = ( P => "packspec",
                              p => "package",
                              T => "typespec",
@@ -1497,16 +1321,16 @@ perl << PerlFunc
   ($success, my $noNestedTags) = VIM::Eval('g:TagsParserNoNestedTags');
   die "Failed to access the nested tag display flag" if !$success;
 
-  # parse the data we just read into hierarchies... if we don't have a
+  # parse the data we just read into hierarchies... If we don't have a
   # kind hash entry for the current file type, just skip the rest of this
   # function
   return if (not defined($kindMap{$kind}) or $noNestedTags == 1);
 
   # for each key, sort it's entries.  These are the tags for each tag,
-  # check for any types which have a scope, and if they do, refernce that type
+  # check for any types which have a scope, and if they do, reference that type
   # to the correct parent type
   #
-  # yeah, this loop sucks, but I haven't found a more efficent way to do
+  # yeah, this loop sucks, but I haven't found a more efficient way to do
   # it yet
   foreach my $key (keys %{$tags{$tagFile}}) {
     foreach my $tagEntry (@{$tags{$tagFile}{$key}}) {
@@ -1544,7 +1368,7 @@ perl << PerlFunc
     # setup a reverse list of local variable references sorted by line
     my @vars = sort { $b->{"line"} <=> $a->{"line"} } @{$tags{$tagFile}{"l"}};
 
-    # sort the functions by reversed line entry... then we will go through the
+    # sort the functions by reversed line entry... Then we will go through the
     # list of local variables until we find one who's line number exceeds that
     # of the functions.  Then we unshift the array and go to the next function
     FUNC: foreach my $funcRef (sort { $b->{"line"} <=> $a->{"line"} }
@@ -1565,7 +1389,7 @@ perl << PerlFunc
 PerlFunc
 endfunction
 " >>>
-" TagsParserOpenTagWindow - Opens up the tag window <<<
+" TagsParserOpenTagWindow - Opens up The tag window <<<
 function! <SID>TagsParserOpenTagWindow()
   "ignore events while opening the tag window
   let l:oldEvents = &eventignore
@@ -1573,8 +1397,7 @@ function! <SID>TagsParserOpenTagWindow()
 
   "save the window number and potential tag file name for the current file
   let s:origFileName = expand("%:t")
-  let s:origFileTagFileName = expand("%:p:h") . "/.tags/" .
-        \ substitute(expand("%:t"), ' ', '_', 'g') . ".tags"
+  let s:origFileTagFileName = expand("%:p:h") . "/.tags/" . expand("%:t") . ".tags"
   let s:origWinNum = winnr()
   "before we move to the new tags window, we must save the type of file
   "that we are currently in
@@ -1590,7 +1413,7 @@ function! <SID>TagsParserOpenTagWindow()
       "if we were not able to resize the current window, that we don't 
       "decrease it any more than we increased it when we opened the tab
       let s:origColumns = &columns
-      "open the tag window, + 1 for the split dividier
+      "open the tag window, + 1 for the split divider
       let &columns = &columns + g:TagsParserWindowSize + 1
       let s:columnsAdded = &columns - s:origColumns
       let s:newColumns = &columns
@@ -1606,6 +1429,10 @@ function! <SID>TagsParserOpenTagWindow()
     setlocal buftype=nofile
     setlocal bufhidden=delete
 
+    if v:version >= 700
+      setlocal nospell
+    endif
+
     "formatting related settings
     setlocal nowrap
     setlocal tabstop=2
@@ -1615,7 +1442,7 @@ function! <SID>TagsParserOpenTagWindow()
       let l:foldLevelString = 'setlocal foldlevel=' . g:TagsParserFoldLevel
       exec l:foldLevelString
     else
-      "if the foldlevel is not defiend, default it to something large so that
+      "if the foldlevel is not defined, default it to something large so that
       "the default folding method takes over
       setlocal foldlevel=100
     endif
@@ -1630,7 +1457,7 @@ function! <SID>TagsParserOpenTagWindow()
     setlocal foldtext=TagsParserFoldFunction()
     setlocal fillchars=fold:\ 
 
-    "if the highlight tag option is on, reduce the updatetime... but not too
+    "if the highlight tag option is on, reduce the updatetime... But not too
     "much because it is global and it could impact overall VIM performance
     if g:TagsParserHighlightCurrentTag == 1
       setlocal updatetime=1000
@@ -1660,7 +1487,7 @@ function! <SID>TagsParserOpenTagWindow()
       "properly handle the WinLeave event
       autocmd BufWinLeave ?* call <SID>TagsParserHandleBufWinLeave()
 
-      "make sure that we don't accidently close the vim session when loading
+      "make sure that we don't accidentally close the Vim session when loading
       "up a new buffer
       autocmd BufAdd * let s:newBufBeingCreated = 1
     augroup end
@@ -1718,7 +1545,7 @@ function! <SID>TagsParserOpenTagWindow()
   endif
 endfunction
 " >>>
-" TagsParserCloseTagWindow - Closes the tags window <<<
+" TagsParserCloseTagWindow - Closes The tags window <<<
 function! <SID>TagsParserCloseTagWindow()
   "ignore events while opening the tag window
   let l:oldEvents = &eventignore
@@ -1737,7 +1564,7 @@ function! <SID>TagsParserCloseTagWindow()
     close
 
     if g:TagsParserNoResize == 0
-      "resize the vim window
+      "resize the Vim window
       if g:TagsParserWindowSize == l:tagsWindowSize && s:newColumns == &columns
         let &columns = &columns - s:columnsAdded
       else
@@ -1770,7 +1597,7 @@ function! <SID>TagsParserCloseTagWindow()
   unlet l:oldEvents
 endfunction
 " >>>
-" TagsParserToggle - Will toggle the tags window open or closed <<<
+" TagsParserToggle - Will toggle The tags window open or closed <<<
 function! <SID>TagsParserToggle()
   "if the TagsParserOff flag is set, print out an error and do nothing
   if g:TagsParserOff != 0
@@ -1800,7 +1627,7 @@ function! <SID>TagsParserToggle()
   endif
 endfunction
 " >>>
-" TagsParserHandleBufWinEnter - handles the BufWinEnter event <<<
+" TagsParserHandleBufWinEnter - handles The BufWinEnter event <<<
 function! <SID>TagsParserHandleBufWinEnter()
   "clear out the new buf flag
   let s:newBufBeingCreated = 0
@@ -1828,7 +1655,7 @@ function! <SID>TagsParserHandleBufWinEnter()
   endif
 endfunction
 ">>>
-" TagsParserHandleBufWinLeave - handles the BufWinLeave event <<<
+" TagsParserHandleBufWinLeave - handles The BufWinLeave event <<<
 function! <SID>TagsParserHandleBufWinLeave()
   "if there is only the tags buffer left showing after this window exits,
   "exit VIM
@@ -1865,7 +1692,7 @@ function! <SID>TagsParserSelectTag()
   let l:oldEvents = &eventignore
   set eventignore=all
 
-  "clearout any previous match
+  "clear out any previous match
   if s:matchedTagWasFolded == 1
     exec s:matchedTagFoldStart . "," . s:matchedTagFoldEnd . "foldclose"
     let s:matchedTagWasFolded = 0
@@ -1873,13 +1700,13 @@ function! <SID>TagsParserSelectTag()
 
   match none
 
-perl << perlFunc
+perl << PerlFunc
   use strict;
   use warnings;
   no warnings 'redefine';
 
   my ($success, $lineNum) = VIM::Eval('line(".")');
-  die "Failed to access the current line" if !$success;
+  die "Failed to access The current line" if !$success;
 
   our @globalPrintData : unique unless(@globalPrintData);
 
@@ -1896,7 +1723,7 @@ perl << perlFunc
 
     if ($folded != -1) {
       ($success, my $foldEnd) = VIM::Eval("foldclosedend($lineNum)");
-      die "Failed to retreive end of fold for line $lineNum" if !$success;
+      die "Failed to retrieve end of fold for line $lineNum" if !$success;
 
       VIM::DoCommand "let s:matchedTagFoldStart = $folded";
       VIM::DoCommand "let s:matchedTagFoldEnd = $foldEnd";
@@ -1912,7 +1739,7 @@ perl << perlFunc
     VIM::DoCommand 'match TagsParserHighlight /\%' . $lineNum .
       'l\S.*\( {{{\)\@=/';
 
-    # go to the proper window, go the correct line, unfold it (if nessecary),
+    # go to the proper window, go the correct line, unfold it (if necessary),
     # move to the correct word (the tag) and finally, set a mark
     VIM::DoCommand 'exec s:origWinNum . "wincmd w"';
     VIM::DoCommand $globalPrintData[$indexNum][1]{"line"};
@@ -1935,14 +1762,14 @@ perl << perlFunc
     # actually folded
     VIM::DoCommand "if foldclosed('.') != -1 | .foldopen | else | .foldclose | endif";
   }
-perlFunc
+PerlFunc
 
   "un ignore events 
   let &eventignore=l:oldEvents
   unlet l:oldEvents
 endfunction
 " >>>
-" TagsParserHighlightTag - highlights the tag that the cursor is on <<<
+" TagsParserHighlightTag - highlights The tag that the cursor is on <<<
 function! <SID>TagsParserHighlightTag(resetCursor)
   "if this buffer is unmodifiable, do nothing
   if &modifiable == 0
@@ -1975,7 +1802,7 @@ function! <SID>TagsParserHighlightTag(resetCursor)
   "goto the tags window
   exec bufwinnr(l:tagBufNum) . "wincmd w"
   
-  "clearout any previous match
+  "clear out any previous match
   if s:matchedTagWasFolded == 1
     exec s:matchedTagFoldStart . "," . s:matchedTagFoldEnd . "foldclose"
     let s:matchedTagWasFolded = 0
@@ -1984,7 +1811,7 @@ function! <SID>TagsParserHighlightTag(resetCursor)
 
   match none
 
-perl << perlFunc
+perl << PerlFunc
   use strict;
   use warnings;
   no warnings 'redefine';
@@ -2070,9 +1897,9 @@ perl << perlFunc
       } # if ($line->[1] == $trueRef) {
     } # while (my $line = $globalPrintData[$index++]) {
   } # if (defined $tagsByLine{$tagFileName}{$curLine}) {
-perlFunc
+PerlFunc
   
-  "before we go back to the previous window... check if we found a match.  If
+  "before we go back to the previous window... Check if we found a match.  If
   "we did not, and the resetCursor parameter is 1 then move the cursor to the
   "top of the file
   if a:resetCursor == 1 && s:matchedTagLine == 0
@@ -2102,7 +1929,7 @@ endfunction
 " >>>
 " TagsParserOff - function to turn off all TagsParser functionality <<<
 function! <SID>TagsParserOff()
-  "only do something if the TagsParser is not off already
+  "only do something if The TagsParser is not off already
   if g:TagsParserOff == 0
     "to turn off the TagsParser, call the TagsParserCloseTagWindow() function,
     "which will uninstall all autocommands except for the default
@@ -2121,18 +1948,18 @@ endfunction
 " >>>
 " TagsParserOn - function to turn all TagsParser functionality back on <<<
 function! <SID>TagsParserOn()
-  "only do something if the TagsParser is off
+  "only do something if The TagsParser is off
   if g:TagsParserOff != 0 && g:TagsParserNoTagWindow == 0
     augroup TagsParserAutoCommands
       autocmd!
-      "setup an autocommand that will expand the path described by g:MyTagsPath
-      "into a valid tag path
-      autocmd VimEnter * call <SID>TagsParserExpandMyTagsPath() |
+      "setup an autocommand that will expand the path described by
+      "g:TagsParserTagsPath into a valid tag path
+      autocmd VimEnter * call <SID>TagsParserExpandTagsPath() |
             \ call <SID>TagsParserPerformOp("open")
 
       "setup an autocommand so that when a file is written to it writes a tag
       "file if it a file that is somewhere within the tags path or the
-      "g:MyTagsPath path
+      "g:TagsParserTagsPath path
       autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag")
     augroup end
 
@@ -2142,20 +1969,20 @@ function! <SID>TagsParserOn()
   elseif g:TagsParserOff != 0 && g:TagsParserNoTagWindow == 1
     augroup TagsParserAutoCommands
       autocmd!
-      "setup an autocommand that will expand the path described by g:MyTagsPath
-      "into a valid tag path
-      autocmd VimEnter * call <SID>TagsParserExpandMyTagsPath()
+      "setup an autocommand that will expand the path described by 
+      "g:TagsParserTagsPath into a valid tag path
+      autocmd VimEnter * call <SID>TagsParserExpandTagsPath()
 
       "setup an autocommand so that when a file is written to it writes a tag
       "file if it a file that is somewhere within the tags path or the
-      "g:MyTagsPath path
+      "g:TagsParserTagsPath path
       autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag")
     augroup end
   endif
   let g:TagsParserOff = 0
 endfunction
 " >>>
-" TagsParserCOpen - opens the quickfix window nicely <<<
+" TagsParserCOpen - opens The quickfix window nicely <<<
 function! <SID>TagsParserCOpen(...)
   let l:windowClosed = 0
 
@@ -2181,13 +2008,13 @@ function! <SID>TagsParserCOpen(...)
   "go to the first error
   exec "cfirst"
 
-  "reopen the tag window if nessecary
+  "reopen the tag window if necessary
   if l:windowClosed == 1
     call <SID>TagsParserOpenTagWindow()
   endif
 endfunction
 " >>>
-" TagsParserCWindow - opens the quickfix window nicely <<<
+" TagsParserCWindow - opens The quickfix window nicely <<<
 function! <SID>TagsParserCWindow(...)
   let l:windowClosed = 0
 
@@ -2215,13 +2042,13 @@ function! <SID>TagsParserCWindow(...)
     exec "cfirst"
   endif
 
-  "reopen the tag window if nessecary
+  "reopen the tag window if necessary
   if l:windowClosed == 1
     call <SID>TagsParserOpenTagWindow()
   endif
 endfunction
 " >>>
-" TagsParserStoreWindowID - stores the new window ID of the current file <<<
+" TagsParserStoreWindowID - stores The new window ID of the current file <<<
 function! <SID>TagsParserStoreWindowID(bufName)
   if a:bufName == s:origFileName && winnr() != s:origWinNum
     let s:origWinNum = winnr()
@@ -2232,4 +2059,4 @@ endfunction
 let &cpo = s:cpoSave
 unlet s:cpoSave
 
-" vim:ft=vim:fdm=marker:ff=unix:wrap:ts=2:sw=2:sts=2:sr:et:fmr=<<<,>>>:fdl=0
+" vim:ft=Vim:fdm=marker:ff=unix:wrap:ts=2:sw=2:sts=2:sr:et:fmr=<<<,>>>:fdl=0

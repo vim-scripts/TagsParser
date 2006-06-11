@@ -1,17 +1,52 @@
 /*
- * File:          ada.c
- * Description:   Enables extended Ada parsing support in Exhuberant Ctags
- * Version:       0.1
+ * File:          Ada.c
+ * Description:   Enables extended Ada parsing support in Exuberant Ctags
+ * Version:       0.2
  * Author:        A. Aaron Cornelius (ADotAaronDotCorneliusAtgmailDotcom)
  *
  * Installation:
- * You must have the Exhuberant Ctags source to install this parser.  Once you
+ * You must have the Exuberant Ctags source to install this parser.  Once you
  * have the source, place this file into the directory with the rest of the
  * ctags source.  Then compile and install ctags as normal (usually:
  * './configure', './make', './make install').
  *
- * TODO: Add signature gathering.
- * TODO: Add inheritance information.
+ * Changelog:
+ * 06/02/2006 - Added missing EOF checks to prevent infinite loops in the case
+ *              of an incomplete Ada (or non-Ada) file being parsed.
+ * 06/02/2006 - Added Copyright notice.
+ *
+ * 0.2 - First Revision
+ * 05/26/2006 - Fixed an error where tagging the proper scope of something
+ *              declared in an anonymous block or anonymous loop was not
+ *              working properly.
+ * 05/26/2006 - Fixed an error capturing the name of a 'separate' tag.
+ * 05/26/2006 - Fixed the cmp() function so that it finds matches correctly.
+ * 05/26/2006 - Fixed some spelling errors.
+ * 05/26/2006 - Added explicit skipping of use and with clauses.
+ *
+ * 0.1 - Initial Release
+ *
+ * Future Changes:
+ * TODO: Add inheritance information?
+ * TODO: Add signature gathering?
+ * TODO: Add capability to create tag for fully qualified object name?
+ *
+ * Copyright (C) 2006 A. Aaron Cornelius
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+ * USA.
  *
  */
 
@@ -31,7 +66,7 @@ typedef enum eAdaException
   EXCEPTION_EOF
 } adaException;
 
-adaException exception;
+static adaException exception;
 
 typedef enum eAdaParseMode
 {
@@ -46,7 +81,7 @@ typedef enum eAdaKinds
 {
   ADA_KIND_SEPARATE = -2,   /* for defining the parent token name of a child
                              * sub-unit */
-  ADA_KIND_UNDEFINED = -1,  /* for default/initilization values */
+  ADA_KIND_UNDEFINED = -1,  /* for default/initialization values */
   ADA_KIND_PACKAGE_SPEC,
   ADA_KIND_PACKAGE,
   ADA_KIND_TYPE_SPEC,
@@ -71,7 +106,7 @@ typedef enum eAdaKinds
   ADA_KIND_LABEL,
   ADA_KIND_IDENTIFIER,
   ADA_KIND_AUTOMATIC_VARIABLE,
-  ADA_KIND_ANNONYMOUS,      /* for non-identified loops and blocks */
+  ADA_KIND_ANONYMOUS,      /* for non-identified loops and blocks */
   ADA_KIND_COUNT            /* must be last */
 } adaKind;
 
@@ -220,7 +255,7 @@ static fpos_t matchFilePos;
 /* a utility function */
 static void makeSpec(adaKind *kind);
 
-/* prototypes of functions for manipulating the ada tokens */
+/* prototypes of functions for manipulating the Ada tokens */
 static adaTokenInfo *newAdaToken(const char *name, int len,
                                  adaKind kind, boolean isSpec,
                                  adaTokenInfo *parent);
@@ -244,7 +279,7 @@ static void skipPast(char *past);
 static void skipPastKeyword(adaKeyword keyword);
 static void skipPastWord(void);
 
-/* prototypes of functions for parsing the high-level ada constructs */
+/* prototypes of functions for parsing the high-level Ada constructs */
 static adaTokenInfo *adaParseBlock(adaTokenInfo *parent, adaKind kind);
 static adaTokenInfo *adaParseSubprogram(adaTokenInfo *parent, adaKind kind);
 static adaTokenInfo *adaParseType(adaTokenInfo *parent, adaKind kind);
@@ -325,7 +360,7 @@ static adaTokenInfo *newAdaToken(const char *name, int len,
   token->parent = parent;
 
   /* the default for scope with most Ada stuff is that it is limited to the
-   * file (well, package/subprogram/etc. but close enough) */
+   * file (well, package/subprogram/etc. But close enough) */
   token->tag.isFileScope = TRUE;
 
   /* add the kind info */
@@ -463,6 +498,11 @@ static void appendAdaTokenList(adaTokenInfo *parent, adaTokenList *children)
 
 static void readNewLine(void)
 {
+  /* a simple var to keep track of how many times we hit EOF... If we hit it
+   * say, about 1000 times, we will print an error, jump to the end of the
+   * program, and store what tags we have */
+  static int eofCount = 0;
+
   while(TRUE)
   {
     line = (const char *) fileReadLine();
@@ -472,7 +512,15 @@ static void readNewLine(void)
     {
       lineLen = 0;
       exception = EXCEPTION_EOF;
-      return;
+      eofCount++;
+
+      if(eofCount >= 1000)
+      {
+      }
+      else
+      {
+        return;
+      }
     }
 
     lineLen = strlen((char *) line);
@@ -487,14 +535,14 @@ static void readNewLine(void)
 static void movePos(int amount)
 {
   pos += amount;
-  if(pos >= lineLen)
+  if(exception != EXCEPTION_EOF && pos >= lineLen)
   {
     readNewLine();
   }
 }
 
-/* a macro for checking for comments... this isn't the same as the check in
- * cmp() because comments don't have to have whitespace or seperation-type
+/* a macro for checking for comments... This isn't the same as the check in
+ * cmp() because comments don't have to have whitespace or separation-type
  * characters following the "--" */
 #define isAdaComment(buf, pos, len) \
   (((pos) == 0 || (!isalnum((buf)[(pos) - 1]) && (buf)[(pos) - 1] != '_')) && \
@@ -518,13 +566,15 @@ static boolean cmp(char *buf, int len, char *match)
   }
 
   /* A match only happens the number of chars in the matching string match,
-   * and whitespace follows... which means we also must check to see if the
+   * and whitespace follows... Which means we also must check to see if the
    * end of the line is after the matching string.  Also check for some
-   * seperation characters such as (, ), :, or ; */
+   * separation characters such as (, ), :, or ; */
   if((strncasecmp(buf, match, strlen(match)) == 0) &&
-     (strlen(match) <= len || isspace(buf[strlen(match)]) ||
-      buf[strlen(match)] == '(' || buf[strlen(match)] == ')' ||
-      buf[strlen(match)] == ':' || buf[strlen(match)] == ';'))
+     (strlen(match) == len ||
+      (strlen(match) < len &&
+       (isspace(buf[strlen(match)]) || buf[strlen(match)] == '(' ||
+        buf[strlen(match)] == ')' || buf[strlen(match)] == ':' ||
+        buf[strlen(match)] == ';'))))
   {
     status = TRUE;
   }
@@ -701,7 +751,7 @@ static void skipPastWord(void)
   }
 
 
-  /* now increment until we hit a non-word character... specificly,
+  /* now increment until we hit a non-word character... Specifically,
    * whitespace, '(', ')', ':', and ';' */
   while(exception != EXCEPTION_EOF && !isspace(line[pos]) &&
         line[pos] != '(' && line[pos] != ')' && line[pos] != ':' &&
@@ -739,7 +789,7 @@ static adaTokenInfo *adaParseBlock(adaTokenInfo *parent, adaKind kind)
   }
   skipWhiteSpace();
 
-  /* we are at the start of what should be the tag now... but we have to get
+  /* we are at the start of what should be the tag now... But we have to get
    * it's length.  So loop until we hit whitespace, init the counter to 1
    * since we know that the current position is not whitespace */
   for(i = 1; (pos + i) < lineLen && !isspace(line[pos + i]) &&
@@ -779,7 +829,7 @@ static adaTokenInfo *adaParseBlock(adaTokenInfo *parent, adaKind kind)
         freeAdaToken(&parent->children, token);
         token = NULL;
 
-        /* move past the ";" ending this declartion */
+        /* move past the ";" ending this declaration */
         skipPast(";");
       }
       else if(adaKeywordCmp(ADA_KEYWORD_NEW))
@@ -822,14 +872,14 @@ static adaTokenInfo *adaParseSubprogram(adaTokenInfo *parent, adaKind kind)
 
   skipWhiteSpace();
 
-  /* we are at the start of what should be the tag now... but we have to get
+  /* we are at the start of what should be the tag now... But we have to get
    * it's length.  So loop until we hit whitespace or the beginning of the
    * parameter list.  Init the counter to 1 * since we know that the current
    * position is not whitespace */
   for(i = 1; (pos + i) < lineLen && !isspace(line[pos + i]) &&
       line[pos + i] != '(' && line[pos + i] != ';'; i++);
 
-  /* we have reached the tag of the subprogram, so create the tag... init the
+  /* we have reached the tag of the subprogram, so create the tag... Init the
    * isSpec flag to false and we will adjust it when we see if there is an
    * "is", "do" or a ";" following the tag */
   token = newAdaToken(&line[pos], i, kind, FALSE, parent);
@@ -848,9 +898,9 @@ static adaTokenInfo *adaParseSubprogram(adaTokenInfo *parent, adaKind kind)
     }
     movePos(1);
 
-    /* check to see if anything was received... if this is an entry this may
+    /* check to see if anything was received... If this is an entry this may
      * have a 'discriminant' and not have any parameters in the first
-     * parenthensis pair, so check again if this was the case*/
+     * parenthesis pair, so check again if this was the case*/
     if(kind == ADA_KIND_ENTRY && tmpToken == NULL)
     {
       /* skip any existing whitespace and see if there is a second parenthesis
@@ -869,7 +919,7 @@ static adaTokenInfo *adaParseSubprogram(adaTokenInfo *parent, adaKind kind)
     } /* if(kind == ADA_KIND_ENTRY && tmpToken == NULL) */
   } /* if(line[pos] == '(' && token != NULL) */
 
-  /* loop inifinately until we hit a "is", "do" or ";", this will skip over
+  /* loop infinitely until we hit a "is", "do" or ";", this will skip over
    * the returns keyword, returned-type for functions as well as any one of a
    * myriad of keyword qualifiers */
   while(exception != EXCEPTION_EOF && token != NULL)
@@ -886,7 +936,7 @@ static adaTokenInfo *adaParseSubprogram(adaTokenInfo *parent, adaKind kind)
          * since it will be defined elsewhere */
         freeAdaToken(&parent->children, token);
 
-        /* move past the ";" ending this declartion */
+        /* move past the ";" ending this declaration */
         skipPast(";");
       }
       else if(adaKeywordCmp(ADA_KEYWORD_NEW))
@@ -908,7 +958,7 @@ static adaTokenInfo *adaParseSubprogram(adaTokenInfo *parent, adaKind kind)
     }
     else if(adaKeywordCmp(ADA_KEYWORD_DO))
     {
-      /* do is the keyword for an the beginning of a task entry */
+      /* do is the keyword for the beginning of a task entry */
       adaParse(ADA_CODE, token);
       break;
     }
@@ -1030,7 +1080,7 @@ static adaTokenInfo *adaParseVariables(adaTokenInfo *parent, adaKind kind)
   int filePosSize = 32;
   fpos_t *filePos = xMalloc(filePosSize, fpos_t);
 
-  /* skip any prelimenary whitespace or comments */
+  /* skip any preliminary whitespace or comments */
   skipWhiteSpace();
   while(exception != EXCEPTION_EOF && isAdaComment(line, pos, lineLen))
   {
@@ -1043,7 +1093,7 @@ static adaTokenInfo *adaParseVariables(adaTokenInfo *parent, adaKind kind)
   lineNum = getSourceLineNumber();
   filePos[filePosIndex] = getInputFilePosition();
 
-  /* setup local buffer... since we may have to read a few lines to verify
+  /* setup local buffer... Since we may have to read a few lines to verify
    * that this is a proper variable declaration, and still make a token for
    * each variable, add one to the allocated string to account for a '\0' */
   bufLen = lineLen - pos;
@@ -1074,8 +1124,8 @@ static adaTokenInfo *adaParseVariables(adaTokenInfo *parent, adaKind kind)
     } /* if(isAdaComment(buf, bufPos, bufLen)) */
     /* we have to keep track of any () pairs that may be in the variable
      * declarations.  And then quit if we hit a ';' the real end ')', or also
-     * a variable initialization... once we hit := then we have hit the end of
-     * the variable declartion */
+     * a variable initialization... Once we hit := then we have hit the end of
+     * the variable declaration */
     else if(buf[bufPos] == '(')
     {
       i++;
@@ -1106,7 +1156,7 @@ static adaTokenInfo *adaParseVariables(adaTokenInfo *parent, adaKind kind)
     }
     /* if we have the position of the ':' find out what the next word is,
      * because if it "constant" or "exception" then we must tag this slightly
-     * differently, but only check this for normal variables */
+     * differently, But only check this for normal variables */
     else if(kind == ADA_KIND_VARIABLE && varEndPos != -1 &&
             !isspace(buf[bufPos]) && tokenStart == -1)
     {
@@ -1135,7 +1185,7 @@ static adaTokenInfo *adaParseVariables(adaTokenInfo *parent, adaKind kind)
 
     /* if we just incremented beyond the length of the current buffer, we need
      * to read in a new line */
-    if(bufPos >= bufLen)
+    if(exception != EXCEPTION_EOF && bufPos >= bufLen)
     {
       readNewLine();
 
@@ -1168,7 +1218,7 @@ static adaTokenInfo *adaParseVariables(adaTokenInfo *parent, adaKind kind)
     varEndPos = bufPos;
   }
 
-  /* so we found a : or ;... if it is a : go back through the buffer and
+  /* so we found a : or ;... If it is a : go back through the buffer and
    * create a token for each word skipping over all whitespace and commas
    * until the : is hit*/
   if(varEndPos != -1)
@@ -1210,7 +1260,7 @@ static adaTokenInfo *adaParseVariables(adaTokenInfo *parent, adaKind kind)
       else if(tokenStart == -1 && !(isspace(buf[i]) || buf[i] == ',' ||
               buf[i] == '\0'))
       {
-        /* only set the tokenStart for non-newline chacaters */
+        /* only set the tokenStart for non-newline characters */
         tokenStart = i;
       }
 
@@ -1274,7 +1324,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
 
   /* if we hit the end of the file, line will be NULL and our skip and match
    * functions will hit this jump buffer with EXCEPTION_EOF */
-  while(exception == EXCEPTION_NONE) 
+  while(exception == EXCEPTION_NONE)
   {
     /* find the next place to start */
     skipWhiteSpace();
@@ -1285,8 +1335,12 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
       readNewLine();
       continue;
     }
-    else if(adaKeywordCmp(ADA_KEYWORD_PRAGMA))
+    else if(adaKeywordCmp(ADA_KEYWORD_PRAGMA) ||
+            adaKeywordCmp(ADA_KEYWORD_WITH) ||
+            adaKeywordCmp(ADA_KEYWORD_USE))
     {
+      /* set the token to NULL so we accidentally don't pick up something
+       * from earlier */
       skipPast(";");
       continue;
     }
@@ -1314,7 +1368,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         }
         else if(adaKeywordCmp(ADA_KEYWORD_GENERIC))
         {
-          /* if we have hit a generic declartion, go to the generic section
+          /* if we have hit a generic declaration, go to the generic section
            * and collect the formal parameters */
           mode = ADA_GENERIC;
           break;
@@ -1328,13 +1382,15 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
           if(line[pos] == '(')
           {
             movePos(1);
+            skipWhiteSpace();
 
             /* get length of tag */
-            for(i = 1; (pos + i) < lineLen && line[pos + i] != ')'; i++);
+            for(i = 1; (pos + i) < lineLen && line[pos + i] != ')' &&
+                !isspace(line[pos + i]); i++);
 
-            /* if this is a separate declartion, all it really does is create
+            /* if this is a separate declaration, all it really does is create
              * a false high level token for everything in this file to belong
-             * to... but we don't know what kind it is, so we declare it as
+             * to... But we don't know what kind it is, so we declare it as
              * ADA_KIND_SEPARATE, which will cause it not to be placed in
              * the tag file, and the item in this file will be printed as
              * separate:<name> instead of package:<name> or whatever the
@@ -1348,9 +1404,8 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
             parent = token;
             token = NULL;
 
-            /* when moving pos, add 1 for the ')' at the end of the separate
-             * statement */
-            movePos(i + 1);
+            /* skip past the ')' */
+            skipPast(")");
           } /* if(line[pos] == '(') */
           else
           {
@@ -1361,14 +1416,14 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         else
         {
           /* otherwise, nothing was found so just skip until the end of this
-           * unknown statment... it's most likely just a use or with
+           * unknown statement... It's most likely just a use or with
            * clause.  Also set token to NULL so we don't attempt anything
            * incorrect */
           token = NULL;
           skipPast(";");
         }
 
-        /* check to see if we succeded in creating our token */
+        /* check to see if we succeeded in creating our token */
         if(token != NULL)
         {
           /* if we made a tag at this level then it shouldn't be file-scope */
@@ -1414,7 +1469,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
                          newAdaToken(&line[pos], i, ADA_KIND_FORMAL, FALSE,
                                      NULL));
 
-          /* skip to the end of this formal type declartion */
+          /* skip to the end of this formal type declaration */
           skipPast(";");
         } /* else if(adaKeywordCmp(ADA_KEYWORD_TYPE)) */
         else if(adaKeywordCmp(ADA_KEYWORD_WITH))
@@ -1448,20 +1503,20 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
             movePos(1);
           }
 
-          /* skip to the end of this formal type declartion */
+          /* skip to the end of this formal type declaration */
           skipPast(";");
         } /* else if(adaKeywordCmp(ADA_KEYWORD_WITH)) */
         else
         {
           /* otherwise, nothing was found so just skip until the end of this
-           * unknown statment... it's most likely just a use or with
+           * unknown statement... It's most likely just a use or with
            * clause.  Also set token to NULL so we don't attempt anything
            * incorrect */
           token = NULL;
           skipPast(";");
         }
 
-        /* check to see if we succeded in creating our token */
+        /* check to see if we succeeded in creating our token */
         if(token != NULL)
         {
           /* if any generic params have been gathered, attach them to
@@ -1492,7 +1547,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         }
         else if(adaKeywordCmp(ADA_KEYWORD_GENERIC))
         {
-          /* if we have hit a generic declartion, go to the generic section
+          /* if we have hit a generic declaration, go to the generic section
            * and collect the formal parameters */
           mode = ADA_GENERIC;
           break;
@@ -1515,7 +1570,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
           /* if we hit a "for" statement it is defining implementation details
            * for a specific type/variable/subprogram/etc...  So we should just
            * skip it, so skip the tag, then we need to see if there is a
-           * 'record' keyword... if there is we must skip past the
+           * 'record' keyword... If there is we must skip past the
            * 'end record;' statement.  First skip past the tag */
           skipPastKeyword(ADA_KEYWORD_USE);
           skipWhiteSpace();
@@ -1547,7 +1602,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
           } /* if(adaCmp(parent->name)) */
           else
           {
-            /* set the token to NULL so we accidently don't pick up something
+            /* set the token to NULL so we accidentally don't pick up something
              * from earlier */
             token = NULL;
             skipPast(";");
@@ -1566,15 +1621,15 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         else
         {
           /* if nothing else matched this is probably a variable, constant
-           * or exception declartion */
+           * or exception declaration */
           token = adaParseVariables(parent, ADA_KIND_VARIABLE);
           skipPast(";");
         }
 
-        /* check to see if we succeded in creating our token */
+        /* check to see if we succeeded in creating our token */
         if(token != NULL)
         {
-          /* if this is one of the root-type tokens... do some extra
+          /* if this is one of the root-type tokens... Do some extra
            * processing */
           if(token->kind == ADA_KIND_PACKAGE ||
              token->kind == ADA_KIND_SUBPROGRAM ||
@@ -1592,9 +1647,9 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         if(adaKeywordCmp(ADA_KEYWORD_DECLARE))
         {
           /* if we are starting a declare block here, and not down at the
-           * identifier definition then make an annoynmous token to track the
+           * identifier definition then make an anonymous token to track the
            * data in this block */
-          token = newAdaToken(NULL, 0, ADA_KIND_ANNONYMOUS, FALSE, parent);
+          token = newAdaToken(NULL, 0, ADA_KIND_ANONYMOUS, FALSE, parent);
 
           /* save the correct starting line */
           token->tag.lineNumber = matchLineNum;
@@ -1605,12 +1660,12 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         else if(adaKeywordCmp(ADA_KEYWORD_BEGIN))
         {
           /* if we are starting a code block here, and not down at the
-           * identifier definition then make an annoynmous token to track the
+           * identifier definition then make an anonymous token to track the
            * data in this block, if this was part of a proper LABEL:
-           * declare/begin/end block then the parent would already be a label 
+           * declare/begin/end block then the parent would already be a label
            * and this begin statement would have been found while in the
            * ADA_DECLARATIONS parsing section  */
-          token = newAdaToken(NULL, 0, ADA_KIND_ANNONYMOUS, FALSE, parent);
+          token = newAdaToken(NULL, 0, ADA_KIND_ANONYMOUS, FALSE, parent);
 
           /* save the correct starting line */
           token->tag.lineNumber = matchLineNum;
@@ -1657,7 +1712,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
           else
           {
             /* otherwise, nothing was found so just skip until the end of
-             * this statment */
+             * this statement */
             skipPast(";");
           }
         } /* else if(adaKeywordCmp(ADA_KEYWORD_END)) */
@@ -1668,12 +1723,12 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         else if(adaKeywordCmp(ADA_KEYWORD_FOR))
         {
           /* if this is a for loop, then we may need to pick up the
-           * automatic loop iterator, but... the loop variable is only
+           * automatic loop iterator, But... The loop variable is only
            * available within the loop itself so make an anonymous label
            * parent for this loop var to be parsed in */
           token = newAdaToken((const char *) AdaKeywords[ADA_KEYWORD_LOOP],
                               strlen(AdaKeywords[ADA_KEYWORD_LOOP]),
-                              ADA_KIND_ANNONYMOUS, FALSE, parent);
+                              ADA_KIND_ANONYMOUS, FALSE, parent);
           adaParseLoopVar(token);
           adaParse(ADA_CODE, token);
         } /* else if(adaKeywordCmp(ADA_KEYWORD_FOR)) */
@@ -1681,7 +1736,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         {
           token = newAdaToken((const char *) AdaKeywords[ADA_KEYWORD_LOOP],
                               strlen(AdaKeywords[ADA_KEYWORD_LOOP]),
-                              ADA_KIND_ANNONYMOUS, FALSE, parent);
+                              ADA_KIND_ANONYMOUS, FALSE, parent);
 
           /* skip past the while loop declaration and parse the loop body */
           skipPastKeyword(ADA_KEYWORD_LOOP);
@@ -1692,7 +1747,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         {
           token = newAdaToken((const char *) AdaKeywords[ADA_KEYWORD_LOOP],
                               strlen(AdaKeywords[ADA_KEYWORD_LOOP]),
-                              ADA_KIND_ANNONYMOUS, FALSE, parent);
+                              ADA_KIND_ANONYMOUS, FALSE, parent);
 
           /* save the correct starting line */
           token->tag.lineNumber = matchLineNum;
@@ -1748,17 +1803,17 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
         }
         else
         {
-          /* set token to NULL so we don't accidently not find an identifier,
-           * but then fall through to the != NULL check */
+          /* set token to NULL so we don't accidentally not find an identifier,
+           * But then fall through to the != NULL check */
           token = NULL;
 
-          /* there is a possibilty that this may be a loop or block
+          /* there is a possibility that this may be a loop or block
            * identifier, so check for a <random_word>: statement */
           for(i = 1; (pos + i) < lineLen; i++)
           {
-            /* if we hit a non-identifier character (anything but letters, _
+            /* if we hit a non-identifier character (anything But letters, _
              * and ':' then this is not an identifier */
-            if(!isalnum(line[pos + i]) && line[pos + i] != '_' && 
+            if(!isalnum(line[pos + i]) && line[pos + i] != '_' &&
                line[pos + i] != ':')
             {
               /* if this is not an identifier then we should just bail out of
@@ -1794,7 +1849,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
             else if(adaKeywordCmp(ADA_KEYWORD_FOR))
             {
               /* just grab the automatic loop variable, and then parse the
-               * loop (it may have somethign to tag which will be a 'child'
+               * loop (it may have something to tag which will be a 'child'
                * of the loop) */
               adaParseLoopVar(token);
               adaParse(ADA_CODE, token);
@@ -1805,7 +1860,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
               skipPastKeyword(ADA_KEYWORD_LOOP);
               skipWhiteSpace();
 
-              /* parse the loop (it may have somethign to tag which will be
+              /* parse the loop (it may have something to tag which will be
                * a 'child' of the loop) */
               adaParse(ADA_CODE, token);
             } /* else if(adaKeywordCmp(ADA_KEYWORD_WHILE)) */
@@ -1813,7 +1868,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
             {
               skipWhiteSpace();
 
-              /* parse the loop (it may have somethign to tag which will be
+              /* parse the loop (it may have something to tag which will be
                * a 'child' of the loop) */
               adaParse(ADA_CODE, token);
             }
@@ -1830,7 +1885,7 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
              * statement */
             skipPast(";");
           }
-        } /* else... no keyword tag fields found, look for others such as
+        } /* else... No keyword tag fields found, look for others such as
            * loop and declare identifiers labels or just skip over this
            * line */
 
@@ -1864,14 +1919,14 @@ static adaTokenInfo *adaParse(adaParseMode mode, adaTokenInfo *parent)
           else
           {
             /* otherwise, nothing was found so just skip until the end of
-             * this statment */
+             * this statement */
             skipPast(";");
           }
         } /* else if(adaKeywordCmp(ADA_KEYWORD_END)) */
         else
         {
           /* otherwise, nothing was found so just skip until the end of
-           * this statment */
+           * this statement */
           skipPast(";");
         }
 
@@ -1892,7 +1947,7 @@ static void storeAdaTags(adaTokenInfo *token)
 
   if(token != NULL)
   {
-    /* do a spec transition if nessecary */
+    /* do a spec transition if necessary */
     if(token->isSpec == TRUE)
     {
       makeSpec(&token->kind);
@@ -1919,61 +1974,45 @@ static void storeAdaTags(adaTokenInfo *token)
         token->tag.extensionFields.scope[0] = AdaKeywords[ADA_KEYWORD_SEPARATE];
         token->tag.extensionFields.scope[1] = token->parent->name;
       }
+    } /* else if(token->parent->kind == ADA_KIND_ANONYMOUS) */
+  } /* if(token->parent != NULL) */
 
-      /* special case... the parent name is probably not quite right if this is
-       * an annonymous block */
-      if(token->parent->kind == ADA_KIND_ANNONYMOUS)
-      {
-        if(token->parent->name == NULL)
-        {
-          token->tag.extensionFields.scope[1] =
-            AdaKeywords[ADA_KEYWORD_DECLARE];
-        }
-        else
-        {
-          token->tag.extensionFields.scope[1] =
-            AdaKeywords[ADA_KEYWORD_LOOP];
-        }
-      } /* else if(token->parent->kind == ADA_KIND_ANNONYMOUS) */
-    } /* if(token->parent != NULL) */
+  /* one check before we try to make a tag... If this is an anonymous
+   * declare block then it's name is empty.  Give it one */
+  if(token->kind == ADA_KIND_ANONYMOUS && token->name == NULL)
+  {
+    token->name = (char *) AdaKeywords[ADA_KEYWORD_DECLARE];
+    token->tag.name = AdaKeywords[ADA_KEYWORD_DECLARE];
+  }
 
-    /* one check before we try to make a tag... if this is an annonymous
-     * declare block then it's name is empty.  Give it one */
-    if(token->kind == ADA_KIND_ANNONYMOUS && token->name == NULL)
-    {
-      token->name = (char *) AdaKeywords[ADA_KEYWORD_DECLARE];
-      token->tag.name = AdaKeywords[ADA_KEYWORD_DECLARE];
-    }
+  /* now 'make' tags that have their options set, But only make anonymous
+   * tags if they have children tags */
+  if(token->kind > ADA_KIND_UNDEFINED && token->kind < ADA_KIND_COUNT &&
+     AdaKinds[token->kind].enabled == TRUE &&
+     ((token->kind == ADA_KIND_ANONYMOUS && token->children.head != NULL) ||
+      token->kind != ADA_KIND_ANONYMOUS))
+  {
+    makeTagEntry(&token->tag);
+  }
 
-    /* now 'make' tags that have thier options set, but only make annonymous
-     * tags if they have children tags */
-    if(token->kind > ADA_KIND_UNDEFINED && token->kind < ADA_KIND_COUNT &&
-       AdaKinds[token->kind].enabled == TRUE &&
-       ((token->kind == ADA_KIND_ANNONYMOUS && token->children.head != NULL) ||
-        token->kind != ADA_KIND_ANNONYMOUS))
-    {
-      makeTagEntry(&token->tag);
-    }
+  /* now make the child tags */
+  tmp = token->children.head;
+  while(tmp != NULL)
+  {
+    storeAdaTags(tmp);
+    tmp = tmp->next;
+  }
 
-    /* now make the child tags */
-    tmp = token->children.head;
-    while(tmp != NULL)
-    {
-      storeAdaTags(tmp);
-      tmp = tmp->next;
-    }
-
-    /* we have to clear out the declare name here or else it may cause issues
-     * when we try to process it's children, and when we try to free the token
-     * data */
-    if(token->kind == ADA_KIND_ANNONYMOUS &&
-       strncasecmp(token->name, AdaKeywords[ADA_KEYWORD_DECLARE],
-                   strlen((char *) AdaKeywords[ADA_KEYWORD_DECLARE])) == 0)
-    {
-      token->name = NULL;
-      token->tag.name = NULL;
-    }
-  } /* if(token != NULL) */
+  /* we have to clear out the declare name here or else it may cause issues
+   * when we try to process it's children, and when we try to free the token
+   * data */
+  if(token->kind == ADA_KIND_ANONYMOUS &&
+     strncasecmp(token->name, AdaKeywords[ADA_KEYWORD_DECLARE],
+                 strlen((char *) AdaKeywords[ADA_KEYWORD_DECLARE])) == 0)
+  {
+    token->name = NULL;
+    token->tag.name = NULL;
+  }
 }
 
 /* main parse function */
@@ -2000,7 +2039,7 @@ static void findAdaTags(void)
   readNewLine();
 
   /* tokenize entire file */
-  while(adaParse(ADA_ROOT, &root) != NULL);
+  while(exception != EXCEPTION_EOF && adaParse(ADA_ROOT, &root) != NULL);
 
   /* store tags */
   tmp = root.children.head;
@@ -2017,7 +2056,7 @@ static void findAdaTags(void)
 /* parser definition function */
 extern parserDefinition* AdaParser(void)
 {
-  static const char *const extensions[] = { "adb", "ads", "ada", NULL };
+  static const char *const extensions[] = { "adb", "ads", "Ada", NULL };
   parserDefinition* def = parserNew("Ada");
   def->kinds = AdaKinds;
   def->kindCount = ADA_KIND_COUNT;
