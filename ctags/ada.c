@@ -1,21 +1,55 @@
-/*
- * File:          Ada.c
+/* File:          Ada.c
  * Description:   Enables extended Ada parsing support in Exuberant Ctags
- * Version:       0.2
+ * Version:       0.4
+ * Date:          September 25, 2006
  * Author:        A. Aaron Cornelius (ADotAaronDotCorneliusAtgmailDotcom)
  *
  * Installation:
  * You must have the Exuberant Ctags source to install this parser.  Once you
  * have the source, place this file into the directory with the rest of the
- * ctags source.  Then compile and install ctags as normal (usually:
- * './configure', './make', './make install').
+ * ctags source.  After ada.c is in the correct directory you need to make the
+ * following changes so that the ada parser is included when you compile and
+ * install ctags:
+ *
+ * to file source.mak add the line
+ *   ada.c \
+ *
+ * after
+ * SOURCES = \
+ *
+ * then add the line
+ *   ada.$(OBJECT) \
+ *
+ * after
+ * OBJECTS = \
+ *
+ * to file parsers.h add the line
+ *     AdaParser, \
+ *
+ * after
+ * #define PARSER_LIST \
+ *
+ * Then compile and install ctags as normal (usually: './configure', './make',
+ * './make install').
  *
  * Changelog:
+ *
+ * 0.4 - Third Revision - 09/25/2006
+ *
+ * 09/25/2006 - Fixed error in newAdaToken which could cause an error on some
+ *              systems when a separate token (which is temporary) gets
+ *              created.
+ * 09/25/2006 - Change matchFilePos initialization in the findAdaTags
+ *              function.
+ *
+ * 0.3 - Second Revision
+ *
  * 06/02/2006 - Added missing EOF checks to prevent infinite loops in the case
  *              of an incomplete Ada (or non-Ada) file being parsed.
  * 06/02/2006 - Added Copyright notice.
  *
  * 0.2 - First Revision
+ *
  * 05/26/2006 - Fixed an error where tagging the proper scope of something
  *              declared in an anonymous block or anonymous loop was not
  *              working properly.
@@ -360,12 +394,21 @@ static adaTokenInfo *newAdaToken(const char *name, int len,
   token->parent = parent;
 
   /* the default for scope with most Ada stuff is that it is limited to the
-   * file (well, package/subprogram/etc. But close enough) */
+   * file (well, package/subprogram/etc. but close enough) */
   token->tag.isFileScope = TRUE;
 
-  /* add the kind info */
-  token->tag.kindName = AdaKinds[kind].name;
-  token->tag.kind = AdaKinds[kind].letter;
+  /* add the kind info - unless this is a SEPARATE kind, in which case keep 
+   * them blank because they get filled in later. */
+  if(kind > ADA_KIND_UNDEFINED)
+  {
+    token->tag.kindName = AdaKinds[kind].name;
+    token->tag.kind = AdaKinds[kind].letter;
+  }
+  else
+  {
+    token->tag.kindName = "";
+    token->tag.kind = "";
+  }
 
   /* setup the parent and children pointers */
   initAdaTokenList(&token->children);
@@ -1971,7 +2014,8 @@ static void storeAdaTags(adaTokenInfo *token)
       }
       else if(token->parent->kind == ADA_KIND_SEPARATE)
       {
-        token->tag.extensionFields.scope[0] = AdaKeywords[ADA_KEYWORD_SEPARATE];
+        token->tag.extensionFields.scope[0] =
+          AdaKeywords[ADA_KEYWORD_SEPARATE];
         token->tag.extensionFields.scope[1] = token->parent->name;
       }
     } /* else if(token->parent->kind == ADA_KIND_ANONYMOUS) */
@@ -2026,7 +2070,10 @@ static void findAdaTags(void)
   line = NULL;
   pos = 0;
   matchLineNum = 0;
-  matchFilePos = 0;
+
+  /* cannot just set matchFilePos to 0 because the fpos_t is not a simple 
+   * integer on all systems. */
+  matchFilePos = getInputFilePosition();
 
   /* init the root tag */
   root.kind = ADA_KIND_UNDEFINED;
@@ -2064,7 +2111,3 @@ extern parserDefinition* AdaParser(void)
   def->parser = findAdaTags;
   return def;
 }
-
-/*
- * vim:ff=unix
- */

@@ -1,4 +1,4 @@
-*TagsParser.txt*	Vim TagsParser Plugin		June 11, 2006
+*TagsParser.txt*	Vim TagsParser Plugin		September 25, 2006
 
 Author: A. Aaron Cornelius 
 
@@ -401,6 +401,36 @@ TagsParserCtagsOptions_{filetype}	*tagsparserctagsoptions_{filetype}*
 			There are no default values for this class of 
 			variables.
 
+TagsParserCtagsOptionsTypeList		*tagsparserctagstypelist*
+			This is a list variable type (see |Lists|), added in 
+			Vim 7.0.  If you are not running Vim 7.0 or a higher 
+			version, you cannot use this option.  This variable 
+			allows a set of the 
+			|TagsParserCtagsOptions_{filetype}| options to be used 
+			every time a |TagDir| command is run.  Otherwise it 
+			will simply run with the default ctags options.  This 
+			list should contain the {filetype} options that you 
+			would like used.  For example if I have these options 
+			set in my .vimrc: >
+	let g:TagsParserCtagsOptions_ada = "--ada-kinds=+PTUVRKOEay"
+	let g:TagsParserCtagsOptions_c = "--c-kinds=+lpx"
+	let g:TagsParserCtagsOptions_cpp = "--c-kinds=+lpx"
+<
+			And I would like these options to be used for each 
+			|TagDir| command, I would set the type list variable 
+			like this: >
+	let g:TagsParserCtagsOptionsTypeList = [ "ada", "c" ]
+<
+			Because my c and cpp options are the same there is no 
+			need to include them twice.  If you use multiple Vim 
+			versions, it is advisable to place a version check 
+			around this variable.  Otherwise it would cause 
+			a syntax error in your .vimrc: >
+	if v:version >= 700
+	  let g:TagsParserCtagsOptionsTypeList = [ "ada", "c" ]
+	endif
+<
+
 TagsParserDirExcludePattern		*tagsparserdirexcludepattern*
 			The default behavior of this is described in
 			|tagsparser-include-exclude-usage|.  The default
@@ -453,6 +483,12 @@ TagsParserFileIncludePattern		*tagsparserfileincludepattern*
 			directory you specify with this command does _not_ need
 			to be located within the |TagsParserTagsPath| for the 
 			command to work.
+
+:TagsParserPrintPath	This command will print out what the current value of 
+			the |TagsParserTagsPath| variable is, as well as all 
+			files and directories found under that path.  This can 
+			make it easier to determine why something you thing 
+			should be tagged is not being tagged.
 
 ==============================================================================
 8. Tag Window Overview			*tagsparser-tagwindow*
@@ -1033,6 +1069,20 @@ check out the |tagsparser-ctags-spaces| section.
 					
 ==============================================================================
 14. Changelog				*tagsparser-changelog*
+
+0.5 - Bugfix release - 09/25/2006
+
+09/25/2006 - Added the TagsParserCtagsOptionsTypeList variable so that the
+	     TagDir command can use the same ctags flags as used when parsing 
+	     files individually.
+09/25/2006 - Fixed LastPositionJump feature, was using BufWinEnter when
+	     BufReadPost should have been used.
+09/18/2006 - Added variable that enables the TagDir command to pass the
+	     correct options to the ctags command.
+09/15/2006 - Fixed buffer change error, moved autocommands from BufWinEnter
+	     to BufEnter events.
+09/14/2006 - Cleaned up tags path generated from the g:TagsParserTagsPath
+	     variable.  Many errors happened if there were spaces in the path.
 
 0.4 - First bugfix release - 06/11/2006
 

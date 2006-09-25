@@ -1,7 +1,7 @@
 " File:         TagsParser.Vim
 " Description:  Dynamic file tagging and mini-window to display tags
-" Version:      0.4
-" Date:         June 11, 2006
+" Version:      0.5
+" Date:         September 25, 2006
 " Author:       A. Aaron Cornelius (ADotAaronDotCorneliusAtgmailDotcom)
 "
 " Installation:
@@ -15,6 +15,22 @@
 " finished The installation steps.
 "
 " Changelog:
+"
+" 0.5 - Bugfix release - 09/25/2006
+"
+" 09/25/2006 - Added the TagsParserCtagsOptionsTypeList variable so that the
+"	             TagDir command can use the same ctags flags as used when 
+"	             parsing files individually.
+" 09/25/2006 - Fixed LastPositionJump feature, was using BufWinEnter when
+"              BufReadPost should have been used.
+" 09/18/2006 - Added variable that enables the TagDir command to pass the
+"              correct options to the ctags command.
+" 09/15/2006 - Fixed buffer change error, moved autocommands from BufWinEnter
+"              to BufEnter events.
+" 09/14/2006 - Cleaned up tags path generated from the g:TagsParserTagsPath
+"              variable.  Many errors happened if there were spaces in the 
+"              path.
+"
 " 0.4 - First bugfix release - 06/11/2006
 "
 " 06/09/2006 - Added some GCOV extensions (*.da, *.bb, *.bbg, *.gcov) to file
@@ -42,13 +58,11 @@
 " TODO: Move as much external code (Perl) to internal vimscript.
 "       - use Vim dictionary instead of Perl hash
 " TODO: Make compatible with Tab pages for Vim 7.
-" TODO: allow The definition of separate tag paths depending on The current 
+" TODO: Allow The definition of separate tag paths depending on The current 
 "       working directory
-" TODO: read in a file when doing TagDir so that The correct options are used 
-"       to tag The file
+" TODO: Setup TagWindow portion of plugin to be autoloaded.
 "
 " Bug List:
-"
 "
 " Copyright (C) 2006 A. Aaron Cornelius
 "
@@ -91,6 +105,12 @@ endif
 " Global Variables <<<
 if !exists("g:TagsParserCtagsOptions")
   let g:TagsParserCtagsOptions = ""
+endif
+
+if v:version <= 700
+  if !exists("g:TagsParserCtagsOptionsTypeList")
+    let g:TagsParserCtagsOptions = []
+  endif
 endif
 
 if !exists("g:TagsParserOff")
@@ -252,38 +272,40 @@ endif
 " Script Autocommands <<<
 " No matter what, always install The LastPositionJump autocommand, if enabled
 if g:TagsParserLastPositionJump == 1
-  au BufWinEnter * if line("'\"") > 0 && line("'\"") <= line("$") | exec "normal g`\"" | endif
+  au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") | exec "normal g`\"" | endif
 endif
 " only install the autocommands if the g:TagsParserOff variable is not set
-if g:TagsParserOff == 0 && g:TagsParserNoTagWindow == 0
-  augroup TagsParserAutoCommands
-    autocmd!
-    "setup an autocommand that will expand the path described by
-    "g:TagsParserTagsPath into a valid tag path
-    autocmd VimEnter * call <SID>TagsParserExpandTagsPath() |
-          \ call <SID>TagsParserPerformOp("open", "")
+if g:TagsParserOff == 0
+  if g:TagsParserNoTagWindow == 0
+    augroup TagsParserAutoCommands
+      autocmd!
+      "setup an autocommand that will expand the path described by
+      "g:TagsParserTagsPath into a valid tag path
+      autocmd VimEnter * call <SID>TagsParserExpandTagsPath() |
+            \ call <SID>TagsParserPerformOp("open", "")
 
-    "setup an autocommand so that when a file is written to it writes a tag
-    "file if it a file that is somewhere within the tags path or the
-    "g:TagsParserTagsPath path
-    autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag", "")
-  augroup end
+      "setup an autocommand so that when a file is written to it writes a tag
+      "file if it a file that is somewhere within the tags path or the
+      "g:TagsParserTagsPath path
+      autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag", "")
+    augroup end
 
-  augroup TagsParserBufWinEnterWindowNotOpen
-    autocmd BufWinEnter ?* call <SID>TagsParserPerformOp("open", "")
-  augroup end
-elseif g:TagsParserOff == 0 && g:TagsParserNoTagWindow == 1
-  augroup TagsParserAutoCommands
-    autocmd!
-    "setup an autocommand that will expand the path described by
-    "g:TagsParserTagsPath into a valid tag path
-    autocmd VimEnter * call <SID>TagsParserExpandTagsPath()
+    augroup TagsParserBufEnterWindowNotOpen
+      autocmd BufEnter ?* call <SID>TagsParserPerformOp("open", "")
+    augroup end
+  elseif g:TagsParserNoTagWindow == 1
+    augroup TagsParserAutoCommands
+      autocmd!
+      "setup an autocommand that will expand the path described by
+      "g:TagsParserTagsPath into a valid tag path
+      autocmd VimEnter * call <SID>TagsParserExpandTagsPath()
 
-    "setup an autocommand so that when a file is written to it writes a tag
-    "file if it a file that is somewhere within the tags path or the
-    "g:TagsParserTagsPath path
-    autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag", "")
-  augroup end
+     "setup an autocommand so that when a file is written to it writes a tag 
+     "file if it a file that is somewhere within the tags path or the 
+     "g:TagsParserTagsPath path
+      autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag", "")
+    augroup end
+  endif
 endif
 " >>>
 " Setup Commands <<<
@@ -294,6 +316,10 @@ nmap <leader>t<space> :TagsParserToggle<CR>
 
 command! -nargs=+ -complete=dir TagDir 
       \ :call <SID>TagsParserSetupDirectoryTags(<q-args>)
+
+" A command that can be used to print out all files that are currently in the 
+" TagsParserTagsPath path.
+command! -nargs=0 TagsParserPrintPath :echo 'g:TagsParserTagsPath = ' . g:TagsParserTagsPath . "\n\n" . globpath(g:TagsParserTagsPath, "*")
 
 " Turning TagsParser functionality completely off (and then back on)
 command! -nargs=0 TagsParserOff :call <SID>TagsParserOff()
@@ -782,6 +808,18 @@ function! <SID>TagsParserTagFile(file)
   else
     let l:fileName = a:file
     let l:userOptions = ""
+
+    "check the list of types that options are defined for, if a filetype is in 
+    "the list, and the g:TagsParserCtagsOptions_{type} variable exists, append 
+    "it to the userOptions string.  But only do this if the vim version is 7.0 
+    "or greater.
+    if v:version >= 700
+      for l:type in g:TagsParserCtagsOptionsTypeList
+        if exists("g:TagsParserCtagsOptions_{l:type}")
+          let l:userOptions = l:userOptions . g:TagsParserCtagsOptions_{l:type} . " "
+        endif
+      endfor
+    endif
   endif
 
   "cleanup the tagfile, regular file and directory names, we have to replace
@@ -840,7 +878,13 @@ function! <SID>TagsParserExpandTagsPath()
   endif
 
   if exists("g:TagsParserTagsPath")
-    let &tags = join(split(globpath(g:TagsParserTagsPath, '/.tags/*.tags'), '\n'), ",") . "," . s:OldTagsPath
+    if s:OldTagsPath !~ ""
+      " for the tags path we must make sure that all \'s are turned into /'s.  
+      " Additionally, if there are any spaces they must be escaped by a \.
+      let &tags = substitute(substitute(join(split(globpath(g:TagsParserTagsPath, '.tags/*.tags'), '\n'), ","), '\', '/', 'g'), ' ', '\\ ', 'g') . "," . s:OldTagsPath
+    else
+      let &tags = substitute(substitute(join(split(globpath(g:TagsParserTagsPath, '.tags/*.tags'), '\n'), ","), '\', '/', 'g'), ' ', '\\ ', 'g')
+    endif
   endif
 endfunction
 " >>>
@@ -1470,14 +1514,14 @@ function! <SID>TagsParserOpenTagWindow()
 
     "the augroup we are going to setup will override this initial
     "autocommand so stop it from running
-    autocmd! TagsParserBufWinEnterWindowNotOpen
+    autocmd! TagsParserBufEnterWindowNotOpen
 
     "setup and autocommand so that when you enter a new buffer, the new file is
     "parsed and then displayed
-    augroup TagsParserBufWinEnterEvents
+    augroup TagsParserBufEnterEvents
       autocmd!
       autocmd WinEnter ?* call <SID>TagsParserStoreWindowID(expand("<afile>"))
-      autocmd BufWinEnter ?* call <SID>TagsParserHandleBufWinEnter()
+      autocmd BufEnter ?* call <SID>TagsParserHandleBufEnter()
       
       "when a file is written, add an event so that the new tag file is parsed
       "and displayed (if there are updates)
@@ -1584,11 +1628,11 @@ function! <SID>TagsParserCloseTagWindow()
     let s:lastFileDisplayed = ""
 
     "remove all buffer related autocommands
-    autocmd! TagsParserBufWinEnterEvents
+    autocmd! TagsParserBufEnterEvents
     autocmd! TagsParserCursorHoldEvent
 
-    augroup TagsParserBufWinEnterWindowNotOpen
-      autocmd BufWinEnter ?* call <SID>TagsParserPerformOp("open")
+    augroup TagsParserBufEnterWindowNotOpen
+      autocmd BufEnter ?* call <SID>TagsParserPerformOp("open")
     augroup end
   endif
   
@@ -1627,8 +1671,8 @@ function! <SID>TagsParserToggle()
   endif
 endfunction
 " >>>
-" TagsParserHandleBufWinEnter - handles The BufWinEnter event <<<
-function! <SID>TagsParserHandleBufWinEnter()
+" TagsParserHandleBufEnter - handles The BufEnter event <<<
+function! <SID>TagsParserHandleBufEnter()
   "clear out the new buf flag
   let s:newBufBeingCreated = 0
 
@@ -1934,12 +1978,12 @@ function! <SID>TagsParserOff()
     "to turn off the TagsParser, call the TagsParserCloseTagWindow() function,
     "which will uninstall all autocommands except for the default
     "TagsParserAutoCommands group (which is always on) and the
-    "TagsParserBufWinEnterWindowNotOpen group (which is on when the window is
+    "TagsParserBufEnterWindowNotOpen group (which is on when the window is
     "closed)
     call <SID>TagsParserCloseTagWindow()
     
     autocmd! TagsParserAutoCommands
-    autocmd! TagsParserBufWinEnterWindowNotOpen
+    autocmd! TagsParserBufEnterWindowNotOpen
 
     "finally, set the TagsParserOff flag to 1
     let g:TagsParserOff = 1
@@ -1963,8 +2007,8 @@ function! <SID>TagsParserOn()
       autocmd BufWritePost ?* call <SID>TagsParserPerformOp("tag")
     augroup end
 
-    augroup TagsParserBufWinEnterWindowNotOpen
-      autocmd BufWinEnter ?* call <SID>TagsParserPerformOp("open")
+    augroup TagsParserBufEnterWindowNotOpen
+      autocmd BufEnter ?* call <SID>TagsParserPerformOp("open")
     augroup end
   elseif g:TagsParserOff != 0 && g:TagsParserNoTagWindow == 1
     augroup TagsParserAutoCommands
