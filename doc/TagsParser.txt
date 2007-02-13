@@ -44,7 +44,8 @@ described in detail below.
 12. Depreciated Options			|tagsparser-depreciated-options|
 13. Known Issues			|tagsparser-issues|
 14. Changelog				|tagsparser-changelog|
-15. Todo list				|tagsparser-todo|
+15. Todo List				|tagsparser-todo|
+16. Bug List				|tagsparser-buglist|
 
 ==============================================================================
 1. Tags Parser Installation		*tagsparser-install*
@@ -54,13 +55,39 @@ the downloaded tarball into a directory that is located somewhere in your
 |runtimepath|.  This is usually one of $HOME/.vim, $HOME/vimfiles,
 $VIM/vimfiles, or $VIMRUNTIME.
 
-If you are using Vim 7, and have downloaded the |vimball| file instead of the 
-tarball file, simply source the vimball and it should install the plugin files 
-for you.
-
 To enable this documentation to be accessible via :help, run
 :helptags <install_dir>/doc where the <install_dir> would be the directory
 where you expanded the tarball.
+
+					*tagsparser-unrelated*
+With the TagsParser plugin, some options are available that are not 
+specifically related to dynamic tag management, or the tag display window.  
+These are included to make life easier when editing multiple files, and these 
+features will not be disabled if the TagsParser plugin is turned off via the 
+|TagsParserOff| option or |:TagsParserOff| command.
+
+The |TagsParserCtrlTabUsage| variable controls the tab/buffer switch behavior. 
+It can be set to either "buffers" or "tabs" (if Vim 7.0 or greater is being 
+used), and provides preset mappings to move forward or backwards through 
+either the buffer list or open tabs (|tabpage|).  Also a mapping is provided 
+to open a few in a new tab.  The |<Plug>TagsParserBufNext|, 
+|<Plug>TagsParserBufPrevious|, |<Plug>TagsParserTabNext|, 
+|<Plug>TagsParserTabPrevious|, and |<Plug>TagsParserTabOpen| mappings are 
+provided to allow the user to define their own mappings for buffer and tab 
+management, instead of relying on the values that are set by the 
+|TagsParserCtrlTabUsage| option.
+
+The |TagsParserLastPositionJump| feature could be considered one of these 
+extra features, but it can be used along with the 
+|TagsParserHighlightCurrentTag| feature for improved tag highlighting 
+behavior.
+
+The Quickfix window commands (|tagsparser-tagwindow-quickfix|) are supplied to 
+make it easier to open and close the quickfix window when the 
+|tagsparser-tagwindow| is opened.
+
+All user commands have default key maps that are created, all of which can be 
+overridden by a user configured map.
 
 					*tagsparser-install-extras*
 In addition to the TagsParser.vim file, Exuberant Ctags must be installed 
@@ -70,7 +97,7 @@ If you are using a version of Vim that is older than 7.0, or the
 |TagsParserForceUsePerl| option is set, Perl must be installed.  For windows 
 users ActiveState's Perl (http://www.activestate.com/Products/ActivePerl/) is 
 easy to find and install.  That is what I used when I tested the Perl portion 
-of this script.
+of this script, on windows.
 
 Once all supporting programs are installed you will need to ensure that the 
 plugin can find the ctags executable.  One way to do this is simply make sure 
@@ -83,8 +110,8 @@ The details of this are in the |tagsparser-ada-support| section, near the
 |tagsparser-tagwindow-languages| section.
 
 					*tagsparser-Perl-warning*
-If you have multiple versions of VIM using the same .vimrc/runtimepath, you 
-can force VIM to not complain about Perl not being enabled at startup using 
+If you have multiple versions of Vim using the same .vimrc/runtimepath, you 
+can force Vim to not complain about Perl not being enabled at startup using 
 the |TagsParserNoPerlWarning| global variable.
 
 ==============================================================================
@@ -100,25 +127,167 @@ TagsParserTagsProgram	The location of the Exuberant ctags program.  If this
 			is set like: >
 	let g:TagsParserTagsProgram = "C:/cygwin/usr/local/bin/ctags"
 <
+					*tagsparsertagsdir*
+TagsParserTagsDir	The name of the directory to be created which is where 
+			the tag files will be stored.  The default value of 
+			this variable is ".tags". >
+	let g:TagsParserTagsDir = ".tags"
+<
+TagsParserDisableLang_{filetype}	*tagsparserdisablelang_{filetype}*
+			This option will prevent a language, which is 
+			currently supported by the TagsParser plugin, from 
+			being tagged or recognized by the plugin.  The 
+			{filetype} option must be in the form that Vim 
+			recognizes the filetype as.  So to disable C++ support 
+			you would have to disable it like so: >
+	let g:TagsParserDisableLang_cpp = 1
+<
+			Because "cpp" is the way that Vim sets the filetype 
+			for C++ files.  This is usually not a big deal, except 
+			for languages which ctags uses non-alphabetic 
+			characters in the name of the language.  The only 
+			languages that this is an issue for (at the moment) 
+			are C++ (cpp) and C# (cs).  These language strings are 
+			listed in the |tagsparser-language-table| section.  
+			There are no default values for this class of 
+			variables.
+
+TagsParserLastPositionJump		*tagsparserlastpositionjump*
+			This is a handy feature to enable, what it will do is 
+			everytime you open up Vim, if you keep a viminfo file, 
+			the cursor will jump to the last line and column the 
+			cursor was at when you exited the file.  Additionally, 
+			if you are editing multiple buffers, this will cause 
+			the cursor to be placed at the same exact place in the 
+			buffer as you were before exiting the buffer.  If this 
+			is enabled, along with the 
+			|TagsParserHighlightCurrentTag| option, it will cause 
+			the correct tag to be highlighted immediately upon 
+			entering the buffer (assuming that the tag window is 
+			open, and a valid tag file exists for the file being 
+			edited in the buffer).  To read more about this refer 
+			to |last-position-jump| or |line()|.  The default 
+			value for this flag is 0. >
+	let g:TagsParserLastPositionJump = 0
+<
+					*tagsparserctrltabusage*
+TagsParserCtrlTabUsage	If the variable is set to "buffers" then <C-Tab> and 
+			<C-S-Tab> will move forward and backwards, in the same 
+			window, through the buffer list (excluding 
+			unmodifiable and unlisted buffers). >
+	let g:TagsParserCtrlTabUsage = "buffers"
+	nmap <C-Tab> <Plug>TagsParserBufNext
+	nmap <C-S-Tab> <Plug>TagsParserBufPrevious
+<
+			If the variable is set to "tabs" and you are using Vim 
+			7.0 or greater, <C-Tab> and <C-S-Tab> will move 
+			backwards and forwards through the currently open tabs 
+			(|tabpage|).  To make it easier to open tabs, the 
+			<C-Space> mapping is provide which will open a file 
+			which is not currently loaded in it's own tabpage in 
+			a new tab.  When the "tabs" option is selected the 
+			<C-b> and <C-B> mappings are provided to move through 
+			the buffer list without using tabs. >
+	let g:TagsParserCtrlTabUsage = "tabs"
+	nmap <C-b> <Plug>TagsParserBufNext
+	nmap <C-B> <Plug>TagsParserBufPrevious
+	nmap <C-Tab> <Plug>TagsParserTabNext
+	nmap <C-S-Tab> <Plug>TagsParserTabPrevious
+	nmap <C-Space> <Plug>TagsParserTabOpen
+<
+			By default this variable has no value. >
+	let g:TagsParserCtrlTabUsage = ""
+<
+
+					*<Plug>TagsParserBufNext*
+<Plug>TagsParserBufNext	This mapping is provided to allow the user to define 
+			their own mapping to move to the next buffer in the 
+			buffer list (except for unmodifiable and unlisted 
+			buffers).  When the |TagsParserCtrlTabUsage| variable 
+			is set to "buffers" a mapping of <C-Tab> is used. >
+	nmap <C-Tab> <Plug>TagsParserBufNext
+<
+			When the |TagsParserCtrlTabUsage| variable is set to 
+			"tabs" a mapping of <C-b> is used. >
+	nmap <C-b> <Plug>TagsParserBufNext
+<
+			Except for the cases listed above, nothing is mapped 
+			to this command by default.  But nothing prevents 
+			a user from creating their own mapping even if the 
+			|TagsParserCtrlTabUsage| variable is not set.
+
+<Plug>TagsParserBufPrevious		*<Plug>TagsParserBufPrevious*
+			This mapping is provided to allow the user to define 
+			their own mapping to move to the previous buffer in 
+			the buffer list (except for unmodifiable and unlisted 
+			buffers).  When the |TagsParserCtrlTabUsage| variable 
+			is set to "buffers" a mapping of <C-S-Tab> is used. >
+	nmap <C-S-Tab> <Plug>TagsParserBufPrevious
+<
+			When the |TagsParserCtrlTabUsage| variable is set to 
+			"tabs" a mapping of <C-B> is used. >
+	nmap <C-B> <Plug>TagsParserBufPrevious
+<
+			Except for the cases listed above, nothing is mapped 
+			to this command by default.  But nothing prevents 
+			a user from creating their own mapping even if the 
+			|TagsParserCtrlTabUsage| variable is not set.
+
+					*<Plug>TagsParserTabNext*
+<Plug>TagsParserTabNext	This mapping is provided to allow the user to define 
+			their own mapping to move to the next tab.  When the 
+			|TagsParserCtrlTabUsage| variable is set to "tabs" 
+			a mapping of <C-Tab> is used. >
+	nmap <C-Tab> <Plug>TagsParserTabNext
+<
+			Except for the above case, nothing is mapped to this 
+			command by default.  But nothing prevents a user from 
+			creating their own mapping even if the 
+			|TagsParserCtrlTabUsage| variable is not set.
+
+<Plug>TagsParserTabPrevious		*<Plug>TagsParserTabPrevious*
+			This mapping is provided to allow the user to define 
+			their own mapping to move to the previous tab.  When 
+			the |TagsParserCtrlTabUsage| variable is set to "tabs" 
+			a mapping of <C-S-Tab> is used. >
+	nmap <C-S-Tab> <Plug>TagsParserTabPrevious
+<
+			Except for the above case, nothing is mapped to this 
+			command by default.  But nothing prevents a user from 
+			creating their own mapping even if the 
+			|TagsParserCtrlTabUsage| variable is not set.
+
+					*<Plug>TagsParserTabOpen*
+<Plug>TagsParserTabOpen This mapping is provided to allow the user to define 
+			their own mapping to open files which are not 
+			currently open in their own tab.  When the 
+			|TagsParserCtrlTabUsage| variable is set to "tabs" 
+			a mapping of <C-Space> is used. >
+	nmap <C-Space> <Plug>TagsParserTabOpen
+<
+			Except for the above case, nothing is mapped to this 
+			command by default.  But nothing prevents a user from 
+			creating their own mapping even if the 
+			|TagsParserCtrlTabUsage| variable is not set.
+
 					*tagsparserforceuseperl*
 TagsParserForceUsePerl	As of TagsParser version 0.6, the major portions of 
 			script have been moved from Perl to Vim scripts.  The 
 			Perl functions are still in place and they will be 
 			used automatically if Vim 7.0 is not in use.  However, 
-			some people may prefer using the Perl based functions.  
+			some people may prefer using the Perl based functions. 
 			To accommodate this the TagsParserForceUsePerl option 
 			can be set.  By default this is off. >
 	let g:TagsParserForceUsePerl = 0
 <
-
 TagsParserNoPerlWarning			*tagsparsernoperlwarning*
-			This is an option you can set if you have the
-			TagsParser plugin installed in your |runtimepath| but
-			some versions of VIM that you may launch don't have
-			Perl support compiled in.  This option being set to 1
-			will prevent the TagsParser from complaining when the
-			non-Perl supported VIM starts up.  This is usually only
-			useful on a combined WIN32/Cygwin VIM setup. >
+			This is an option you can set if you have the 
+			TagsParser plugin installed in your |runtimepath| but 
+			some versions of Vim that you may launch don't have 
+			Perl support compiled in.  This option being set to 
+			1 will prevent the TagsParser from complaining when 
+			the non-Perl supported Vim starts up.  This is usually 
+			only useful on a combined WIN32/Cygwin Vim setup. >
 	let g:TagsParserNoPerlWarning = 1
 <
 					*tagsparseroff*
@@ -135,49 +304,23 @@ TagsParserOff		This option will let you disable all TagsParser
 			command. >
 	let g:TagsParserOff = 1
 <
-TagsParserDisableLang_{filetype}	*tagsparserdisablelang_{filetype}*
-			This option will let you prevent a language which is 
-			currently supported by the TagsParser plugin from 
-			being tagged or recognized by the plugin.  The 
-			{filetype} option must be in the form that VIM 
-			recognizes the filetype as.  So to disable C++ support 
-			you would have to disable it like so: >
-	let g:TagsParserDisableLang_cpp = 1
-<
-			Because "cpp" is the way that VIM sets the filetype 
-			for C++ files.  This is usually not a big deal, except 
-			for languages which ctags uses non-alphabetic 
-			characters in the name of the language.  The only 
-			languages that this is an issue for (at the moment) 
-			are C++ (cpp) and C# (cs).  These language strings are 
-			listed in the |tagsparser-language-table| section.  
-			There are no default values for this class of 
-			variables.
+			The TagsParser plugin can be re-enabled during the 
+			editing session by using the |:TagsParserOn| command.
 
-TagsParserLastPositionJump		*tagsparserlastpositionjump*
-			This is a handy feature to enable, what it will do is 
-			everytime you open up VIM, if you keep a viminfo file, 
-			the cursor will jump to the last line and column the 
-			cursor was at when you exited the file.  Additionally, 
-			if you are editing multiple buffers, this will cause 
-			the cursor to be placed at the same exact place in the 
-			buffer as you were before exiting the buffer.  If this 
-			is enabled, along with the 
-			|TagsParserHighlightCurrentTag| option, it will cause 
-			the correct tag to be highlighted immediately upon 
-			entering the buffer (assuming that the tag window is 
-			open, and a valid tag file exists for the file being 
-			edited in the buffer).  To read more about this refer 
-			to |last-position-jump| or |line()|.  The default 
-			value for this flag is 0. >
-	let g:TagsParserLastPositionJump = 0
+					*tagsparser_loaded*
+tagsparser_loaded	The TagsParser plugin can be completely disabled on 
+			Vim startup by use of the tagsparser_loaded variable.  
+			This is the variable that is checked upon plugin 
+			initialization, and if it is set to 1 the plugin 
+			script will be not be read. >
+	let tagsparser_loaded = 0
 <
 ==============================================================================
 3. Tags Parser Global Commands		*tagsparser-commands*
 
 					*:tagsparseroff*
 :TagsParserOff		This command can be used to turn off all TagsParser
-			behavior after VIM is started and the plugin has been
+			behavior after Vim is started and the plugin has been
 			installed.  When the plugin is off the tag window
 			cannot be opened, tags files will not be saved, and
 			you will not be able to tag a directory using the
@@ -192,38 +335,46 @@ TagsParserLastPositionJump		*tagsparserlastpositionjump*
 			functionality, to restore the operation of the plugin 
 			you must turn it on via the |:TagsParserOn| command.
 
-					*<leader>tof*
-<leader>tof		This is the default mapping installed which will call
-			the |:TagsParserOff| command.
-
+					*<Plug>TagsParserOff*
+<Plug>TagsParserOff	This is a mapping defined in the TagsParser script 
+			which allows the user to define their own mapping to 
+			the |:TagsParserOff| command.  If a user defined 
+			mapping does not exist then a default mapping of 
+			<leader>tof is created. >
+	nmap <leader>tof <Plug>TagsParserOff
+<
 					*:tagsparseron*
 :TagsParserOn		This command can be used to turn on all TagsParser
-			behavior after VIM is started and the plugin has been
+			behavior after Vim is started and the plugin has been
 			installed, but the plugin has also been turned off.
 			This can be either by the |:TagsParserOff| command or
 			via the |TagsParserOff| configuration variable.  This
 			re-enables all TagsParser functionality as described in
 			this help file.
 
-					*<leader>ton*
-<leader>ton		This is the default mapping installed which will call
-			the |:TagsParserOn| command.
-
-
+					*<Plug>TagsParserOn*
+<Plug>TagsParserOn	This is a mapping defined in the TagsParser script 
+			which allows the user to define their own mapping to 
+			the |:TagsParserOn| command.  If a user defined 
+			mapping does not exist then a default mapping of 
+			<leader>ton is created. >
+	nmap <leader>ton <Plug>TagsParserOn
+<
 ==============================================================================
 4. Dynamic Tags Overview		*tagsparser-dynamictags*
 
 The dynamic tags portion of the TagsParser plugin was created to enable a
 directory to be specified as a project directory, using the 
-|TagsParserTagsPath| variable, and every file in that directory will be tagged 
-dynamically.  So as soon as you save a file the tags for that file will be 
-updated or created depending on whether the tag file existed or not.
+|TagsParserTagsPath| variable or the |TagsParserProjectConfig| object, and 
+every file in the specified directory path will be tagged dynamically.  So as 
+soon as you save a file the tags for that file will be updated or created 
+depending on whether the tag file existed or not.
 
-This way the normal VIM tag search feature |tags-and-searches| will be able to
-be used while always having up-to-date tags.  You can also specify static tag
-files utilizing the standard |tags-option|.  This can be used to specify a set
-of tags that you would like to reference but will not be changing very often
-(if at all).
+This way the normal Vim tag search feature |tags-and-searches| will be able to 
+be used while always having up-to-date tags.  You can also specify static tag 
+files utilizing the |TagsParserTagsLib| variable.  This can be used to specify 
+a set of tags that you would like to reference but will not be changing very 
+often (if at all).
 
 In this way you can have your project files updated as you change them, but
 any supporting code, such as an OS, can still be referenced.  Since the tags
@@ -234,7 +385,7 @@ searching those files.
 					*tagsparser-dynamictags-languages*
 The dynamic tags portion of the TagsParser plugin supports all languages that
 Exuberant Ctags supports.  If you have added your own languages in a format
-that VIM can understand, the TagsParser should support any additions.
+that Vim can understand, the TagsParser should support any additions.
 
 As mentioned in the |tagsparser-install-extras| and
 |tagsparser-tagwindow-languages| sections, there is more information about
@@ -248,23 +399,22 @@ programs you are ready to use the dynamic tag functionality of the TagsParser.
 To use the dynamic tags, the only thing you need to do is setup your project
 directories using the |TagsParserTagsPath| global variable.  Once this is 
 done, every file you save that is under that path (and meets any exclude or 
-include criteria, more on that in a second) will automatically create or update 
-a tag file.  If that tag file did not exist before now, it will be added to the
-regular VIM |tags-option| so tag searching via the normal methods (|tag|, |ts|,
-|<CTRL-]>|, |<CTRL-T>|, etc.) are supported.
+include criteria, more on that in a second) will automatically create or 
+update a tag file.  If that tag file did not exist before now, it will be 
+added to the regular Vim |'tags'| path so tag searching via the normal methods 
+(|tag|, |ts|, |<CTRL-]>|, |<CTRL-T>|, etc.) are supported.
 
-If you would like to setup some sort of standard "library" type tags file with 
-the same options as the TagsParser plugin uses to tag files, this is an 
-example (aside from any user or language specific options that the you may 
-enable via your .vimrc), of the options that TagsParser enables when it 
-processes files. >
+If you would like to setup a standard "library" type tags file with the same 
+options as the TagsParser plugin uses to tag files, this is an example (aside 
+from any user or language specific options that the you may enable via your 
+.vimrc), of the options that TagsParser enables when it processes files.  >
 	ctags -f <full_path_tag_file> --format=2 <g:TagsParserCtagsOptions> \
 		<g:TagsParserCtagsOptions_{filetype}> --extra=+q --excmd=p \
-		--fields=+nS --sort=yes --tag-relative=yes \
+		--fields=+nS-t --sort=yes --tag-relative=yes \
 		<full_path_source_file>
 <
 As you can see from the --extra=+q option that is being set, the |TagsParser| 
-plugin now supports tag files with qualified tags.  By default these are 
+plugin now supports tag files with qualified tags.  All qualified tags are 
 filtered out when the |tagsparser-tagwindow| parses the tags files for 
 display.  Sometimes if a qualified tag does not get detected it can cause 
 strange behavior, including freezing Vim (If this happens CTRL-C should be 
@@ -282,14 +432,14 @@ errors when saving files or running the |TagDir| command this is likely the
 cause.
 
 There are three ways to fix this problem:
-1) Don't use spaces in file or directory names (obviously this is not the best 
-'solution').
-2) Fix the Exuberant Ctags source so that all filenames are passed to the sort 
-program quoted.  This is more work, but has the benefit of using less memory 
-and being faster than the Ctags internal sort.
-3) Use Ctags internal sort.  This is the easiest option.  To use the internal 
-Ctags sort algorithm, you must recompile the ctags program when supplying 
---disable-external-sort during the configure step.
+1. Don't use spaces in file or directory names (obviously this is not the best 
+   "solution").
+2. Fix the Exuberant Ctags source so that all filenames are passed to the sort 
+   program quoted.  This is more work, but has the benefit of using less 
+   memory and being faster than the Ctags internal sort.
+3. Use Ctags internal sort.  This is the easiest option.  To use the internal 
+   Ctags sort algorithm, you must recompile the ctags program when supplying 
+   --disable-external-sort during the configure step.
 
 					*tagsparser-include-exclude-usage*
 You can automatically include or exclude files or directories under the tag
@@ -360,6 +510,28 @@ TagsParserTagsPath	This is the option that defines the project
 			this make extensive use of the special vim characters 
 			such as **, **[0-255], *, etc.
 
+					*tagsparsertagslib*
+TagsParserTagsLib	This option is used to define a static tag file that 
+			should be appended to the |'tags'| path that is 
+			created when the TagsParserTagsPath is expanded to 
+			contain the tag files of all files within the path.  
+			This variable is defined using the same syntax as the 
+			normal Vim |tags-option|. >
+	let g:TagsParserTagsLib = "./tags,tags"
+<
+			This used to be accomplished through the use of the 
+			standard |tags-option|, however using the standard Vim 
+			tags path in this manner prevented the use of the 
+			standard tags path for normal uses.  The addition of 
+			the TagsParserTagsLib variable allows the definition 
+			of a standard library tag file for a project without 
+			interfering with the behavior of Vim when editing 
+			files that are not related to the directories defined 
+			in the |TagsParserTagsPath|, or the directories 
+			defined in the |TagsParserProjectConfig|.  By default 
+			this option is defined as empty. >
+	let g:TagsParserTagsLib = ""
+<
 					*tagsparserctagsoptions*
 TagsParserCtagsOptions	This option can be used to enable or disable global 
 			Ctags functionality.  This could be something like 
@@ -373,7 +545,7 @@ TagsParserCtagsOptions	This option can be used to enable or disable global
 			aid the TagsParser plugin and these should not be 
 			turned off, some won't matter to the behavior of the 
 			TagsParser (such as "--sort=yes", it would make tag 
-			searching by VIM slower though).  And some will make 
+			searching by Vim slower though).  And some will make 
 			a difference (such as "--fields=+nS", disabling either 
 			option would break some or all of the TagsParser 
 			functionality).  However, even if you include some of 
@@ -401,9 +573,9 @@ TagsParserCtagsOptions_{filetype}	*tagsparserctagsoptions_{filetype}*
 			from being listed in the Tag Window.  If a type is not 
 			displayed because it's "parent" type is disabled, it 
 			will still be in the tag file and still be able to be 
-			located using regular VIM tag commands (see |tags| or 
+			located using regular Vim tag commands (see |tags| or 
 			|tagsparser-dynamictags-usage| for details about 
-			regular VIM tag commands).  So if you disable the 
+			regular Vim tag commands).  So if you disable the 
 			tagging of C/C++ structures: >
 	let g:TagsParserCtagsOptions_c = "--c-kinds=-s"
 <
@@ -415,9 +587,9 @@ TagsParserCtagsOptions_{filetype}	*tagsparserctagsoptions_{filetype}*
 
 			This option can also be useful where ctags won't 
 			automatically recognize a file as the proper type but 
-			VIM does.  For example, by default, ctags does not 
+			Vim does.  For example, by default, ctags does not 
 			recognize *.mk files as Makefiles (this was fixed with 
-			the release of ctags 5.6), but VIM does.  So one quick 
+			the release of ctags 5.6), but Vim does.  So one quick 
 			way to make sure that your *.mk files get tagged 
 			properly is to do this: >
 	let g:TagsParserCtagsOptions_make = "--language-force=make"
@@ -473,7 +645,17 @@ TagsParserCtagsQualifiedTagSeparator	*tagsparserctagsqualifiedtagseparator*
 			modify this value to avoid any potential problems. >
 	let g:TagsParserCtagsQualifiedTagSeparator = '\.\|:'
 <
-
+			The default tag separator can be appended to by 
+			starting your user defined pattern with a +. >
+	let g:TagsParserCtagsQualifiedTagSeparator = '+\|#'
+<
+			This would effectively be the same as defining the tag 
+			separator with the default values, and then adding 
+			your own values at the end, but has the benefit of 
+			being both shorter, and not being dependent on the 
+			specific TagsParser version. >
+	let g:TagsParserCtagsQualifiedTagSeparator = '\.\|+\|#'
+<
 TagsParserDirExcludePattern		*tagsparserdirexcludepattern*
 			The default behavior of this is described in
 			|tagsparser-include-exclude-usage|.  The default
@@ -482,7 +664,23 @@ TagsParserDirExcludePattern		*tagsparserdirexcludepattern*
 		\ '.\+/\..\+\|.\+/_.\+\|\%(\ctmp\)\|' .
 		\ '\%(\ctemp\)\|\%(\cbackup\)'
 <
-
+			Similar to the |TagsParserCtagsQualifiedTagSeparator| 
+			The default directory exclude pattern can be appended 
+			to by starting your user defined pattern with a +. >
+	let g:TagsParserDirExcludePattern = '+\|.\+/\%(lib\)'
+<
+TagsParserDirIncludePattern		*tagsparserdirincludepattern*
+			The default behavior of this is described in
+			|tagsparser-include-exclude-usage|.  The default
+			definition of this variable is: >
+	let g:TagsParserDirIncludePattern = ''
+<
+			So by default this option is considered disabled.  
+			Similar to the |TagsParserCtagsQualifiedTagSeparator| 
+			The default directory exclude pattern can be appended 
+			to by starting your user defined pattern with a +. >
+	let g:TagsParserDirIncludePattern = '+\|.\+/\%(libStuffDontExclude\)'
+<
 TagsParserFileExcludePattern		*tagsparserfileexcludepattern*
 			The default behavior of this is described in
 			|tagsparser-include-exclude-usage|.  The default
@@ -495,23 +693,130 @@ TagsParserFileExcludePattern		*tagsparserfileexcludepattern*
 		\ '^.*\.\%(\ctxt\)$\|^.*\.\%(\cali\)$\|^.*\.\%(\cda\)$\|' .
 		\ '^.*\.\%(\cbb\)$\|^.*\.\%(\cbbg\)$\|^.*\.\%(\cgcov\)$'
 <
-
-TagsParserDirIncludePattern		*tagsparserdirincludepattern*
-			The default behavior of this is described in
-			|tagsparser-include-exclude-usage|.  The default
-			definition of this variable is: >
-	let g:TagsParserDirIncludePattern = ""
+			Similar to the |TagsParserCtagsQualifiedTagSeparator| 
+			The default directory exclude pattern can be appended 
+			to by starting your user defined pattern with a +. >
+	let g:TagsParserFileExcludePattern = '+\|^\%(\cgnat\.adc\)$'
 <
-			So by default this option is considered disabled.
-
 TagsParserFileIncludePattern		*tagsparserfileincludepattern*
 			The default behavior of this is described in
 			|tagsparser-include-exclude-usage|.  The default
 			definition of this variable is: >
-	let g:TagsParserFileIncludePattern = ""
+	let g:TagsParserFileIncludePattern = ''
 <
 			So by default this option is considered disabled.
+			Similar to the |TagsParserCtagsQualifiedTagSeparator| 
+			The default directory exclude pattern can be appended 
+			to by starting your user defined pattern with a +. >
+	let g:TagsParserFileIncludePattern = '+\|^.*\.\%(gCov\)$'
+<
+TagsParserProjectConfig			*tagsparserprojectconfig*
+			If you are using Vim 7.0 then a Vim hash 
+			(|Dictionaries|) can be used to create a set of 
+			projects that each contain their own distinct options. 
+			This has the advantage of decreasing the possible size 
+			of the tag list that will be searched, and the time it 
+			takes to determine if a file is in a valid path or 
+			not.  A project is defined by using the root directory 
+			as the dictionary key: >
+	let g:TagsParserProjectConfig = {}
+	let g:TagsParserProjectConfig['C:\Working\Project1'] = {}
+	let g:TagsParserProjectConfig['C:\Working\Project2'] = {}
+<
+					*tagsparserprojectkeyslashissues*
+			Unfortunately, a |glob()| command is used to find out 
+			which dictionary key matches the directory the current 
+			file is in, so the project configuration keys must 
+			have the correct '\' usage for the current OS.  Which 
+			means that '\' must be used for a |win32| Vim, and '/' 
+			must be used for just about every other OS.
 
+			It is possible for a project to be defined as 
+			a directory which is contained within another project. 
+			In this case, when script determines which project 
+			a file belongs in, it will select the directory key 
+			match that is longer than the rest. >
+	let g:TagsParserProjectConfig = {}
+	let g:TagsParserProjectConfig['C:\Working = {}
+	let g:TagsParserProjectConfig['C:\Working\SpecialProject1'] = {}
+<
+			The following options can be defined per project:
+			|TagsParserTagsPath|, |TagsParserTagsLib|, 
+			|TagsParserQualifiedTagSeparator|, 
+			|TagsParserDirExcludePattern|, 
+			|TagsParserDirIncludePattern|, 
+			|TagsParserPathExcludePattern|, 
+			|TagsParserPathIncludePattern|.
+			The syntax for defining these project options are: >
+	let g:TagsParserProjectConfig['/work/prj1'].tagsPath =
+			\ "/work/prj1/**/src,/work/prj1/**/inc"
+
+	let g:TagsParserProjectConfig['/work/prj1'].tagsLib =
+			\ "/work/prj1/os.tags"
+
+	let g:TagsParserProjectConfig['/work/prj1'].qualifiedTagSeparator =
+			\ '+\|#'
+
+	let g:TagsParserProjectConfig['/work/prj1'].dirExcludePattern =
+			\ '+\|.\+/\%(lib\)'
+
+	let g:TagsParserProjectConfig['/work/prj1'].dirIncludePattern =
+			\ '+\|.\+/\%(libStuffDontExclude\)'
+
+	let g:TagsParserProjectConfig['/work/prj1'].fileExcludePattern =
+			\ '+\|^\%(\cgnat\.adc\)$'
+
+	let g:TagsParserProjectConfig['/work/prj1'].fileIncludePattern
+			\ '+\|^.*\.\%(gCov\)$'
+<
+			If one of these options are defined then the project 
+			uses the project specific value instead of the global 
+			variable value.  If the project-specific variable is 
+			not defined, then the value of the global variable is 
+			used.
+			
+			Similar to how a + can be put at the beginning of the 
+			definition of one of the global patterns to have the 
+			global pattern concatenated with the default pattern 
+			values.  A + can be used when defining the project 
+			value of a pattern.  If this is done then the project 
+			pattern will be concatenated with the current global 
+			variable value, this will either be the default (if no 
+			global variable pattern was defined), the user 
+			specified global value (if a global pattern was 
+			defined, and it did not start with a +), or 
+			a combination of the default and user defined patterns 
+			(if the global pattern was defined and started with 
+			a +).
+			
+					*tagsparserfilereadtag*
+TagsParserFileReadTag	If this option is enabled, it will cause a file to be 
+			tagged when the file is read.  This can be useful if 
+			source code updates happen frequently, but you do not 
+			regularly re-tag the project using the |:TagDir| 
+			command.  By default this feature is disabled. >
+	let g:TagsParserFileReadTag = 0
+<
+TagsParserFileReadDeleteTag		*tagsparserfilereaddeletetag*
+			If this option is enabled, when a file is read, if 
+			a tag file exists for it, but the file is not located 
+			in a valid |TagsParserProjectConfig| tags path (or the 
+			default |TagsParserTagsPath|), then the tag file will 
+			be deleted.  By default this feature is disabled. >
+	let g:TagsParserFileReadDeleteTag = 0
+<
+					*tagsparsersaveinterval*
+TagsParserSaveInterval	This option controls how often a tags file is saved.   
+			Some people tend to save very often, and this can 
+			cause the tag file to be written very frequently, and 
+			an external system command executed each time.  This 
+			option prevents the tag file from being written if the 
+			last write time on the tag file is less than 
+			TagsParserSaveInterval seconds older than the current 
+			system time.  By default this variable is set to 30 
+			seconds. >
+	let g:TagsParserSaveInterval = 30
+<
 ==============================================================================
 7. Dynamic Tags Commands		*tagsparser-dynamictags-commands*
 
@@ -522,11 +827,27 @@ TagsParserFileIncludePattern		*tagsparserfileincludepattern*
 			(|tagsparser-include-exclude-usage|).  The command
 			will do directory name completion for you.  This can
 			be used to get an initial set of tags for your project
-			directory, or pretty much however you want.  The
-			directory you specify with this command does _not_ need
-			to be located within the |TagsParserTagsPath| for the 
-			command to work.
+			directory.  Keep in mind that the more files that are 
+			being tagged, that the longer this command will take 
+			to complete, and because a single |system()| command 
+			is used for every file's tag command it can be 
+			intrusive during operation.  It is advised to run this 
+			command at times when it will not interfere with the 
+			use of the computer while tagging large numbers of 
+			files.
+					-NOTE-
+			Unlike previous versions of the TagsParser plugin, 
+			with the addition of project configurations
+			(|TagsParserProjectConfig|), the TagDir command will 
+			not work on directories that do not correspond to 
+			a project.  However, this enables the use of the 
+			TagDir command on an overall root directory such as 
+			"C:/Working", which will then tag each file under this 
+			directory with the correct options for the project 
+			that they belong to, and only project files will be 
+			tagged.
 
+					*:tagsparserprintpath*
 :TagsParserPrintPath	This command will print out what the current value of 
 			the |TagsParserTagsPath| variable is, as well as all 
 			files and directories found under that path.  This can 
@@ -553,14 +874,24 @@ TagsParser). >
 	foo	foo.c	/^struct foo$/;"	s	line:1
 	bar	foo.c	/^    int bark;/;"	m	line:3	struct:foo
 <
-So you can see that it is easy to know that struct memeber bar belongs to
+So you can see that it is easy to know that struct member bar belongs to
 struct foo.  This information is used so that all structures are displayed
 under the structure they belong to.
 
-If you are using Exuberant Ctags 5.5.4, it has support for tagging local
-variables in functions, and this is supported by TagsParser.  Local variables
-are not tagged by default however, so you will have to enable this via the
-|TagsParserCtagsOptions_{filetype}| configuration variable.
+The Tag Window portion of the TagsParser plugin now supports Vim tabs (see the 
+|tabpage| help file for more information).  A separate buffer will be created 
+for every open tabpage.  If the |TagsParserAutoOpenClose| option is enabled, 
+and |TagsParserNoResize| is not set, resizing of the Vim window should still 
+operate correctly.  However, if the TagsPaser is on, and a tab is entered 
+which does not have a tag file, Vim will not be resized just for that single 
+tab.  If the TagsParser is turned off, by using the |:TagsParserOff| command 
+for example, then all Vim will be resized, and the Tag Windows closed in each 
+tab the next time that tab is entered.
+
+If you are using Exuberant Ctags 5.5.4 or greater, it has support for tagging 
+local variables in functions, and this is supported by TagsParser.  Local 
+variables are not tagged by default however, so you will have to enable this 
+via the |TagsParserCtagsOptions_{filetype}| configuration variable.
 
 Currently only Ada and C/H/C++ files have extended support built in to the
 TagsParser plugin.  This is mostly because I am familar with the lanugage and
@@ -576,14 +907,14 @@ also be mostly straight forward to do, but it isn't quite as simple.  I am
 happy to help with any requests for hierarchical language support also because
 I feel like this is where the TagsParser plugin is most useful.  The 'H' 
 language isn't really a separate language, but some people add it as 
-a separate type.  So if you have an 'H' language type added with your VIM 
+a separate type.  So if you have an 'H' language type added with your Vim 
 setup then the TagsParser will recognize it as a c/c++ file.  Here is the list 
 of currently supported languages, and what modes they are supported in.  Some 
-types supported by Ctags do not appear to have a direct correlation with a VIM 
+types supported by Ctags do not appear to have a direct correlation with a Vim 
 type.
 
 					*tagsparser-language-table*
-Language	Support			VIM filetype	Ctags type
+Language	Support			Vim filetype	Ctags type
 -------------------------------------------------------------------------
 Ada		extended support	ada		ada (add-on)
 Assembly	basic supoort		asm		asm
@@ -671,8 +1002,8 @@ will open.  If you wish to disable the Tag Window, you can set the
 |TagsParserNoTagWindow| variable.
 
 a tag window is resized while it is opened, the tag window will attempt to
-maintain that size if it is ever closed and re-opened during that VIM session.
-When VIM is closed the tag window will revert back to it's default or
+maintain that size if it is ever closed and re-opened during that Vim session.
+When Vim is closed the tag window will revert back to it's default or
 preconfigured size (if |TagsParserWindowSize| is set).
 
 To open the tag window use |:TagsParserToggle|.  The default behavior is that
@@ -684,9 +1015,9 @@ The position of the opened Tag Window defaults to a right vertical split, you
 can move it to the left side of the screen if you want though using the 
 |TagsParserWindowLeft| variable.  If you prefer the window to be opened using 
 a horizontal split instead of vertical, use the |TagsParserHorizontalSplit| 
-option.  With that option set the Tag Window opens on the bottom of the VIM 
+option.  With that option set the Tag Window opens on the bottom of the Vim 
 window by default.  If you would prefer the Tag Window to open on the bottom 
-of the VIM window, set both the |TagsParserHorizontalSplit| and 
+of the Vim window, set both the |TagsParserHorizontalSplit| and 
 |TagsParserWindowTop| variables together.
 
 					*tagsparser-tagwindow-closing*
@@ -715,10 +1046,10 @@ then surrounding code will be unfolded.
 					*tagsparser-tagwindow-folding*
 About the only interaction that the window requires is that you can fold and
 unfold the various hierarchies in the tag window, and you can select a tag.
-The methods of folding are the same as the standard VIM folding methods (see
+The methods of folding are the same as the standard Vim folding methods (see
 |folding| or |fold-methods| if you need more information).  To select a tag you
 can either hit <CR> to select it, double left click on a tag, or if the
-|TagsParserSingleClick| option is set when VIM is started, you can just use a
+|TagsParserSingleClick| option is set when Vim is started, you can just use a
 single click to select a tag.  If a tag is selected (either manually, or by the 
 |TagsParserHighlightCurrentTag| option) and that tag is located within a fold,
 that fold will be opened.  When a new tag is selected, that fold will be
@@ -783,7 +1114,7 @@ TagsParserNoNestedTags	This option will prevent the tags displayed in the Tag
 
 					*tagsparserwindowleft*
 TagsParserWindowLeft	This option will cause the Tag Window to be displayed 
-			on the left side of the VIM window.  This setting only 
+			on the left side of the Vim window.  This setting only 
 			matters if the |TasgParserHorizontalSplit| option is 
 			off.  By default it is displayed on the right side, so 
 			this flag is set to 0. >
@@ -794,15 +1125,15 @@ TagsParserHorizontalSplit		*tagsparserhorizontalsplit*
 			This option will cause the Tag Window to be opened 
 			using a horizontal split instead of the default 
 			vertical split.  When this is set the Tag Window 
-			defaults to opening on the bottom of the VIM window.  
-			To force it to open on the top of the VIM window you 
+			defaults to opening on the bottom of the Vim window.  
+			To force it to open on the top of the Vim window you 
 			can set use the |TagsParserWindowTop| variable.  By 
 			default this flag is 0. >
 	let g:TagsParserHorizontalSplit = 0
 <
 					*tagsparserwindowtop*
 TagsParserWindowTop	This option will cause the Tag Window to be displayed 
-			on the top of the VIM window using a horizontal split.  
+			on the top of the Vim window using a horizontal split.  
 			This setting only matters if the 
 			|TagsParserHorizontalSplit| option is set.  By default 
 			this flag is 0. >
@@ -812,7 +1143,7 @@ TagsParserWindowTop	This option will cause the Tag Window to be displayed
 TagsParserWindowSize	The size of the tag window when it is opened.  If the
 			|TagsParserNoResize| flag is set then the tag window
 			will simply steal this many columns from your existing
-			VIM window.  The default is 40. >
+			Vim window.  The default is 40. >
 	let g:TagsParserWindowSize = 40
 <
 					*tagsparserwindowname*
@@ -834,7 +1165,7 @@ TagsParserAutoOpenClose			*tagsparserautoopenclose*
 
 					*tagsparsernoresize*
 TagsParserNoResize	If you don't like the tag window increasing the size
-			of your VIM window you can set this flag.  The default
+			of your Vim window you can set this flag.  The default
 			for this flag is 0. >
 	let g:TagsParserNoResize = 0
 <
@@ -926,7 +1257,7 @@ TagsParserDisableType_{filetype}_{letter}
 <
 			As with the other {filetype} configuration variables, 
 			you must replace the {filetype} string with the string 
-			VIM uses as the filetype for files of that type.  The 
+			Vim uses as the filetype for files of that type.  The 
 			details of the lanugage strings are listed in the 
 			|tagsparser-language-table| section.  The {letter} 
 			option is whatever the ctags program uses for that 
@@ -959,7 +1290,7 @@ TagsParserFoldHeading_{filetype}_{letter}
 			details on how the TagsParser plugin uses folding in 
 			the Tag Window.  Similar to other {filetype} and 
 			{letter} configuration variables, the {filetype} must 
-			be the string VIM uses as the filetype, these are 
+			be the string Vim uses as the filetype, these are 
 			listed in the |tagsparser_language-table|.  And the 
 			{letter} is the letter that the ctags program uses.  
 			An example of how to find this is show in the 
@@ -1024,10 +1355,14 @@ TagsParserHighlight	The selected tag in the tag window match this syntax
 			opened when it is unwanted.  This allows you to easily
 			control the auto-open behavior during a vim session.
 
-					*<leader>t<space>*
-<leader>t<space>	This is the default mapping installed which will call
-			the |:TagsParserToggle| command.
-
+					*<Plug>TagsParserToggle*
+<Plug>TagsParserToggle	This is a mapping defined in the TagsParser script 
+			which allows the user to define their own mapping to 
+			the |:TagsParserToggle| command.  If a user defined 
+			mapping does not exist then a default mapping of 
+			<leader>t<space> is created. >
+	nmap <leader>t<space> <Plug>TagsParserToggle
+<
 					*:tagsparsercbot*
 :TagsParserCBot		This command is used to open up a quickfix window
 			(unconditionally) along the same lines as the regular
@@ -1035,10 +1370,14 @@ TagsParserHighlight	The selected tag in the tag window match this syntax
 			split horizontally below all currently opened windows,
 			and then jump to the first error (if there are any).
 
-					*<leader>tbo*
-<leader>tbo		This is the default mapping installed which will call
-			the |:TagsParserCBot| command.
-
+					*<Plug>TagsParserCBot*
+<Plug>TagsParserCBot	This is a mapping defined in the TagsParser script 
+			which allows the user to define their own mapping to 
+			the |:TagsParserCBot| command.  If a user defined 
+			mapping does not exist then a default mapping of 
+			<leader>tbo is created. >
+	nmap <leader>tbo <Plug>TagsParserCBot
+<
 					*:tagsparsercbotwin*
 :TagsParserCBotWin	This command is used to open up a quickfix window along
 			the same lines as the regular |:cwindow| command.  It
@@ -1046,10 +1385,14 @@ TagsParserHighlight	The selected tag in the tag window match this syntax
 			below all currently opened windows, and then jump to
 			the first error (if there are any).
 
-					*<leader>tbw*
-<leader>tbw		This is the default mapping installed which will call
-			the |:TagsParserCBotWin| command.
-
+					*<Plug>TagsParserCBotWin*
+<Plug>TagsParserCBotWin	This is a mapping defined in the TagsParser script 
+			which allows the user to define their own mapping to 
+			the |:TagsParserCBotWin| command.  If a user defined 
+			mapping does not exist then a default mapping of 
+			<leader>tbw is created. >
+	nmap <leader>tbw <Plug>TagsParserCBotWin
+<
 					*:tagsparsercopen*
 :TagsParserCOpen	This command is used to open up a quickfix window
 			(unconditionally) along the same lines as the regular
@@ -1058,10 +1401,14 @@ TagsParserHighlight	The selected tag in the tag window match this syntax
 			(and active) file, and then jump to the first error (if
 			there are any).
 
-					*<leader>to*
-<leader>to		This is the default mapping installed which will call
-			the |:TagsParserCOpen| command.
-
+					*<Plug>TagsParserCOpen*
+<Plug>TagsParserCOpen	This is a mapping defined in the TagsParser script 
+			which allows the user to define their own mapping to 
+			the |:TagsParserCOpen| command.  If a user defined 
+			mapping does not exist then a default mapping of 
+			<leader>to is created. >
+	nmap <leader>to <Plug>TagsParserCOpen
+<
 					*:tagsparsercwindow*
 :TagsParserCWindow	This command is used to open up a quickfix window along
 			the same lines as the regular |:cwindow| command.  It
@@ -1070,10 +1417,23 @@ TagsParserHighlight	The selected tag in the tag window match this syntax
 			file, and then jump to the first error (if there are
 			any).
 
-					*<leader>tw*
-<leader>tw		This is the default mapping installed which will call
-			the |:TagsParserCWindow| command.
-
+					*<Plug>TagsParserCWindow*
+<Plug>TagsParserCWindow	This is a mapping defined in the TagsParser script 
+			which allows the user to define their own mapping to 
+			the |:TagsParserCWindow| command.  If a user defined 
+			mapping does not exist then a default mapping of 
+			<leader>tw is created. >
+	nmap <leader>tw <Plug>TagsParserCWindow
+<
+					*<Plug>TagsParserCClose*
+<Plug>TagsParserCClose	This is a mapping defined in the TagsParser script 
+			which allows the user to define their own mapping to 
+			the |:cclose| command.  There no real need for this 
+			mapping, but it is supplied for completeness.  If 
+			a user defined mapping does not exist then a default 
+			mapping of <leader>tc is created.  >
+	nmap <leader>tc <Plug>TagsParserCClose
+<
 ==============================================================================
 12. Depreciated Options			*tagsparser-depreciated-options*
 
@@ -1133,9 +1493,80 @@ file names.  This is because of how parameters are supplied to the external
 sort program.  Ctags uses an external sort by default (if it is available).  
 For more information about this particular bug, and how to work around it, 
 check out the |tagsparser-ctags-spaces| section.
+
+					*tagsparser-issues-5*
+- If a |TagsParserProjectConfig| is used, the directory paths used as the keys 
+to the dictionary must be defined using the correct '\' or '/' for the OS 
+being used.  See |TagsParserProjectKeySlashIssues|
 					
 ==============================================================================
 14. Changelog				*tagsparser-changelog*
+
+0.9 - Minor changes and bugfixes
+
+02/09/2007 - Fixed bug where switching buffers produced fold errors.
+02/08/2007 - Fixed bug where a tag with a separator character was not 
+	     displayed, even though it was not a qualified tag.
+02/08/2007 - Moved Changelog, Bug list and Future Change list to doc file.
+02/07/2007 - Moved TagsParser functions to be autoloaded.
+02/07/2007 - Created au commands to tag a file on read (if it is in project
+             path), and also to delete a tag file (if it exists and is not 
+             in a valid project path).
+02/07/2007 - renamed load check variable to loaded_tagsparser.
+02/07/2007 - Reorganized command mappings to allow user to create their
+             own mappings to TagsParser commands.
+02/07/2007 - Prevented the deletion of TagsParserCursorHoldEvent
+	     autocommand group if the TagsParserHighlightCurrentTag option is 
+	     not enabled.  *Bug reported by AS*
+02/07/2007 - Created TagsParserSaveInterval option to reduce how often a
+             tags file is written.
+	     *Change suggested by AS*
+02/07/2007 - Made directory name where tags are stored configurable.
+	     *Change suggested by AS*
+02/07/2007 - Added check for ctags version before adding --fields=-t flag.
+	     *Bug reported by AS*
+02/07/2007 - Removed useless exec command placed before system calls.
+	     *Change suggested by AS*
+01/23/2007 - Added ! after all 'normal' commands to use unmapped commands.
+	     *Suggested by AS*
+
+0.8 - Tabpage support, multiple project definitions, and various bugfixes.
+
+02/07/2007 - Fixed multi-level tag folding and unfolding.
+01/23/2007 - Fixed issues when moving between tab pages by creating a tag
+             window buffer for each tab page.
+11/30/2006 - Fixed <leader>tc mapping with missing <CR>.
+11/29/2006 - Fixed the TagDir command so that it works with a project
+             config.
+11/28/2006 - Fixed dir include/exclude pattern matching so that it should
+             work across multiple directory levels, and had windows change 
+             all \'s to /'s so that the same patterns will work in windows 
+             and unix systems.
+11/16/2006 - Implemented the Buffer/Tab management mappings.
+11/16/2006 - Implemented project data retrieval functions and integrated
+             them into the rest of the functions.
+11/16/2006 - Allowed user to append their own settings on top of the default
+             file/dir include/exclude and qualified tag separator patterns.
+11/16/2006 - Removed incorrect limitation on the
+             TagsParserCtagsOptionsTypeList variable where it was not 
+             configured if Perl was being used.
+11/16/2006 - Added the TagsParserTagsLib variable, and if the
+             TagsParserTagsPath variable is empty the default Vim tags 
+             setting is left untouched.
+11/15/2006 - Added mappings and functions to make buffer/tab navigation
+             easier.
+11/14/2006 - Changed capture of current word to use <cword> instead of
+             exec 'normal ma"ayiw`a'
+11/14/2006 - Enhanced LastPositionJump feature to open the fold in the
+             current file (if the current position is within a folded fold).
+11/14/2006 - Finished fixes to tag window open/close/resize behavior when
+             interacting with tabpages.
+11/10/2006 - Fixed Perl QualifiedTagSeparator comparison.
+11/10/2006 - Added support for using tabpages instead of buffer explorer to
+             view multiple files, and still having the Tag Window work.
+11/08/2006 - Added new autocmd that moves the current directory to the
+             directory that the current file resides in.  The 
+             TagsParserCurrentFileCWD variable enables this new autocmd.
 
 0.7 - Bugfixes of Vim script functions.
 
@@ -1192,9 +1623,9 @@ check out the |tagsparser-ctags-spaces| section.
 
 0.5 - Minor Bugfix release - 09/25/2006
 
-09/25/2006 - Added the TagsParserCtagsOptionsTypeList variable so that the
-                   TagDir command can use the same ctags flags as used when 
-                   parsing files individually.
+09/25/2006 - Added the TagsParserCtagsOptionsTypeList variable so that the 
+	     TagDir command can use the same ctags flags as used when parsing 
+	     files individually.
 09/25/2006 - Fixed LastPositionJump feature, was using BufWinEnter when
              BufReadPost should have been used.
 09/18/2006 - Added variable that enables the TagDir command to pass the
@@ -1231,10 +1662,44 @@ check out the |tagsparser-ctags-spaces| section.
 ==============================================================================
 15. Todo List				*tagsparser-todo*
 
-- Make tab pages play nicely with the Tag Window.
-- Allow the definition of separate tag paths depending on the current working 
-  directory.  Useful for working on large multiple projects.
-- Setup the TagWindow portion of this plugin to be autoloaded.
+High Priority:
+1. TagDir command enhancement to gather files into one system command instead 
+of many separate commands.
+
+2. Implement recursive folding of tags.
+
+Medium Priority:
+1. Create command that can create a tag library file of a requested directory 
+using the configured exceptions and ctags options.
+
+2. Be able to link a particular file/directory with a group of 
+files/directories to be able to automatically create monolithic tag files.  
+Provide this for more than one monolithic tag file.
+
+Low Priority:
+1. Performance improvements?
+
+2. Setup alternate panes for use in 'project' viewing:
+      * Directory listing (netrw?)
+      * Files currently loaded - per tab/window/active highlighted
+      * persistent quickfix window?
+
+3. Save existing 'project' data, files open, window sizes, etc.
+
+Distant Future:
+1. Figure out way to reference everywhere function/variable is used?  Perhaps 
+be able to link to Cscope functionality?
 
 ==============================================================================
- vim:tw=78:ts=8:sts=8:sw=8:noet:ft=help:fo=twa21
+16. Bug List				*tagsparser-buglist*
+
+High Priority:
+
+Medium Priority:
+
+Low Priority:
+1. inline function defs (like "+") don't match with the auto tag highlight.
+2. project keys must have correct '\' usage |TagsParserProjectKeySlashIssues|
+
+==============================================================================
+vim:tw=78:ts=8:sts=8:sw=8:noet:ft=help:fo=twa21:ff=unix
