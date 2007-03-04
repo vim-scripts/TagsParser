@@ -1,7 +1,7 @@
 " File:         plugin/TagsParser.Vim
 " Description:  Dynamic file tagging and mini-window to display tags
-" Version:      0.9
-" Date:         February, 07 2007
+" Version:      0.9.1
+" Date:         March, 04 2007
 " Author:       A. Aaron Cornelius (ADotAaronDotCorneliusAtgmailDotcom)
 "
 " Installation:
@@ -63,6 +63,14 @@ if (v:version < 700 || g:TagsParserForceUsePerl == 1) && !has('Perl')
 endif " if (v:version < 700 || g:TagsParserForceUsePerl == 1) && !has('Perl')
 " >>>
 " Global Variables <<<
+if !exists("g:TagsParserDebugTime")
+  let g:TagsParserDebugTime = 0
+endif
+
+if !exists("g:TagsParserDebugFlag")
+  let g:TagsParserDebugFlag = 0
+endif
+
 if !exists("g:TagsParserTagsDir")
   let g:TagsParserTagsDir = ".tags"
 endif
@@ -125,6 +133,10 @@ endif
 
 if !exists("g:TagsParserNoTagWindow")
   let g:TagsParserNoTagWindow = 0
+endif
+
+if !exists("g:TagsParserTagWindowFixedSize")
+  let g:TagsParserTagWindowFixedSize = 1
 endif
 
 if !exists("g:TagsParserWindowLeft")
@@ -293,12 +305,9 @@ endif
 " Script Autocommands <<<
 " No matter what, always install The LastPositionJump autocommand, if enabled
 if g:TagsParserLastPositionJump == 1
-  au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") | 
-        \ exec "normal! g`\"" | 
-        \ if foldclosed('.') != -1 | 
-        \ foldopen |
-        \ endif |
-        \ endif
+  autocmd BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$") | 
+        \ exec "normal! g`\"" | if foldclosed('.') != -1 | foldopen |
+        \ endif | endif
 endif
 
 " No matter what, always install The CurrentFileCWD autocommand, if enabled.  
@@ -308,49 +317,42 @@ endif
 
 " only install the autocommands if the g:TagsParserOff variable is not set
 if g:TagsParserOff == 0
+  augroup TagsParserAutoCommands
+    autocmd!
+    "setup an autocommand that will expand the path described by
+    "g:TagsParserTagsPath into a valid tag path
+    autocmd VimEnter * call TagsParser#Debug(2, "VimEnter - ".
+          \ expand("<amatch>")) | call TagsParser#ExpandTagsPath()
+
+    "setup an autocommand so that when a file is written to it writes a tag
+    "file if it a file that is somewhere within the tags path or the
+    "g:TagsParserTagsPath path
+    autocmd BufWritePost ?* call TagsParser#Debug(2, "BufWritePost - ".
+          \ expand("<amatch>")) | call TagsParser#PerformOp("tag", "")
+  augroup END
+
   if g:TagsParserNoTagWindow == 0
-    augroup TagsParserAutoCommands
-      autocmd!
-      "setup an autocommand that will expand the path described by
-      "g:TagsParserTagsPath into a valid tag path
-      autocmd VimEnter * call TagsParser#ExpandTagsPath() |
-            \ call TagsParser#PerformOp("open", "")
-
-      "setup an autocommand so that when a file is written to it writes a tag
-      "file if it a file that is somewhere within the tags path or the
-      "g:TagsParserTagsPath path
-      autocmd BufWritePost ?* call TagsParser#PerformOp("tag", "")
-    augroup END
-
     augroup TagsParserBufEnterWindowNotOpen
-      autocmd BufEnter ?* call TagsParser#PerformOp("open", "")
+      autocmd BufEnter ?* call TagsParser#Debug(2, "BufEnter - ".
+          \ expand("<amatch>")) | call TagsParser#PerformOp("open", "")
     augroup END
-  else
-    augroup TagsParserAutoCommands
-      autocmd!
-      "setup an autocommand that will expand the path described by
-      "g:TagsParserTagsPath into a valid tag path
-      autocmd VimEnter * call TagsParser#ExpandTagsPath()
-
-     "setup an autocommand so that when a file is written to it writes a tag 
-     "file if it a file that is somewhere within the tags path or the 
-     "g:TagsParserTagsPath path
-      autocmd BufWritePost ?* call TagsParser#PerformOp("tag", "")
-    augroup END
-  endif " if g:TagsParserNoTagWindow == 0
-
-  " Setup an autocommand that will tag a file when it is opened
-  if g:TagsParserFileReadTag == 1
-    autocmd BufRead ?* call TagsParser#PerformOp("tag", "")
   endif
 
-  " Setup an autocommand that will remove any tag file that exists, when it is 
-  " opened, if the file is not in a project path.
-  if g:TagsParserFileReadDeleteTag == 1
-    autocmd BufRead ?* call TagsParser#PerformOp("deletetag", "")
-  endif
+  " Autocommands that will always be installed, unless the plugin is off.
+  augroup TagsParserAlwaysOnCommands
+    " Setup an autocommand that will tag a file when it is opened
+    if g:TagsParserFileReadTag == 1
+      autocmd BufRead ?* call TagsParser#Debug(2, "BufRead - ".
+          \ expand("<amatch>")) | call TagsParser#PerformOp("tag", "")
+    endif
 
-
+    " Setup an autocommand that will remove any tag file that exists, when it 
+    " is opened, if the file is not in a project path.
+    if g:TagsParserFileReadDeleteTag == 1
+      autocmd BufRead ?* call TagsParser#Debug(2, "BufRead - ".
+          \ expand("<amatch>")) | call TagsParser#PerformOp("deletetag", "")
+    endif
+  augroup END
 endif " if g:TagsParserOff == 0
 " >>>
 " Setup Commands <<<
@@ -424,11 +426,11 @@ if g:TagsParserCtrlTabUsage == "buffers"
   endif
 elseif g:TagsParserCtrlTabUsage == "tabs" && v:version >= 700
   if !hasmapto('<Plug>TagsParserBufNext')
-    nmap <C-b> <Plug>TagsParserBufNext
+    nmap <leader>b <Plug>TagsParserBufNext
   endif
 
   if !hasmapto('<Plug>TagsParserBufPrevious')
-    nmap <C-B> <Plug>TagsParserBufPrevious
+    nmap <leader>B <Plug>TagsParserBufPrevious
   endif
 
   if !hasmapto('<Plug>TagsParserTabNext')

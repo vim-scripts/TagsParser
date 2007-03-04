@@ -1,7 +1,7 @@
 " File:         autoload/TagsParser.Vim
 " Description:  Dynamic file tagging and mini-window to display tags
-" Version:      0.9
-" Date:         February, 07 2007
+" Version:      0.9.1
+" Date:         March, 04 2007
 " Author:       A. Aaron Cornelius (ADotAaronDotCorneliusAtgmailDotcom)
 "
 " Installation:
@@ -587,9 +587,9 @@ let s:autoOpenCloseTurnedOff = 0
 let s:closedBufName = ""
 let s:curNumWindows = -1
 let s:winLeaveBufName = ""
-let s:tagWindowSize = g:TagsParserWindowSize
 let s:newColumns = 0
 let s:newLines = 0
+let s:tagsWindowSize = 0
 
 "based on The window position configuration variables, setup the tags window 
 "split command
@@ -632,6 +632,7 @@ endif
 " a portion of the current working directory, the longest match is returned as 
 " the current project key.
 function! TagsParser#GetProject()
+  call TagsParser#Debug(1, "TagsParser#GetProject()")
   " Init the match key to empty
   let l:matchKey = ""
 
@@ -659,6 +660,7 @@ function! TagsParser#GetProject()
     endfor " for l:key in keys(l:matchPrj)
   endif " if v:version >=700 && exists("g:TagsParserProjectConfig")
 
+  call TagsParser#Debug(1, "TagsParser#GetProject() = " . l:matchKey)
   return l:matchKey
 endfunction " function TagsParser#GetProject()
 " >>>
@@ -671,35 +673,34 @@ endfunction " function TagsParser#GetProject()
 " be running for files in the current working directory.  If the 
 " TagsParserProjectConfig is not configured then the global TagsParserTagsPath 
 " is returned.
-function! TagsParser#GetTagsPath()
+function! TagsParser#GetTagsPath(prjKey)
+  call TagsParser#Debug(1, "TagsParser#GetTagsPath(" . a:prjKey . ")")
   " Setup the default return data, this is just the global config 
   let l:data = g:TagsParserTagsPath
 
   " Make sure that the Vim version can do this and that a project config is 
   " defined.
   if v:version >= 700 && exists("g:TagsParserProjectConfig")
-    " Now find the applicable config (if any)
-    let l:prjKey = TagsParser#GetProject()
-
-    if l:prjKey != "" 
+    if a:prjKey != "" 
       " Only set the data to the project value if it exists, otherwise the 
       " default config value will be returned.
-      if exists("g:TagsParserProjectConfig[l:prjKey].tagsPath")
-        let l:data = g:TagsParserProjectConfig[l:prjKey].tagsPath
+      if exists("g:TagsParserProjectConfig[a:prjKey].tagsPath")
+        let l:data = g:TagsParserProjectConfig[a:prjKey].tagsPath
 
         " Check for a + as the first character of the returned data.  If it is 
         " then the default TagsPath should be prepended to this project data.
         if l:data[0] == '+' && len(l:data) > 1
           let l:data = g:TagsParserTagsPath . l:data[1:-1]
         endif
-      endif " if exists("g:TagsParserProjectConfig[l:prjKey].tagsPath")
+      endif " if exists("g:TagsParserProjectConfig[a:prjKey].tagsPath")
     else
       " If the project does not exist, return an empty string
       let l:data = ""
-    endif " if l:prjKey != "" 
+    endif " if a:prjKey != "" 
   endif " if v:version >= 700 && exists("g:TagsParserProjectConfig")
 
   " Now return the data
+  call TagsParser#Debug(1, "TagsParser#GetTagsPath() = " . l:data)
   return l:data
 endfunction " function TagsParser#GetTagsPath()
 " >>>
@@ -712,35 +713,34 @@ endfunction " function TagsParser#GetTagsPath()
 " be running for files in the current working directory.  If the 
 " TagsParserProjectConfig is not configured then the global TagsParserTagsLib 
 " is returned.
-function! TagsParser#GetTagsLib()
+function! TagsParser#GetTagsLib(prjKey)
+  call TagsParser#Debug(1, "TagsParser#GetTagsLib(" . a:prjKey . ")")
   " Setup the default return data, this is just the global config 
   let l:data = g:TagsParserTagsLib
 
   " Make sure that the Vim version can do this and that a project config is 
   " defined.
   if v:version >= 700 && exists("g:TagsParserProjectConfig")
-    " Now find the applicable config (if any)
-    let l:prjKey = TagsParser#GetProject()
-
-    if l:prjKey != "" 
+    if a:prjKey != "" 
       " Only set the data to the project value if it exists, otherwise the 
       " default config value will be returned.
-      if exists("g:TagsParserProjectConfig[l:prjKey].tagsLib")
-        let l:data = g:TagsParserProjectConfig[l:prjKey].tagsLib
+      if exists("g:TagsParserProjectConfig[a:prjKey].tagsLib")
+        let l:data = g:TagsParserProjectConfig[a:prjKey].tagsLib
 
         " Check for a + as the first character of the returned data.  If it is 
         " then the default TagsLib should be prepended to this project data.
         if l:data[0] == '+' && len(l:data) > 1
           let l:data = g:TagsParserTagsLib . l:data[1:-1]
         endif
-      endif " if exists("g:TagsParserProjectConfig[l:prjKey].tagsLib")
+      endif " if exists("g:TagsParserProjectConfig[a:prjKey].tagsLib")
     else
       " If the project does not exist, return an empty string
       let l:data = ""
-    endif " if l:prjKey != "" 
+    endif " if a:prjKey != "" 
   endif " if v:version >= 700 && exists("g:TagsParserProjectConfig")
 
   " Now return the data
+  call TagsParser#Debug(1, "TagsParser#GetTagsLib() = " . l:data)
   return l:data
 endfunction
 " >>>
@@ -754,21 +754,19 @@ endfunction
 " for files in the current working directory.  If the TagsParserProjectConfig 
 " is not configured then the global TagsParserCtagsQualifiedTagSeparator is 
 " returned.
-function! TagsParser#GetQualifiedTagSeparator()
+function! TagsParser#GetQualifiedTagSeparator(prjKey)
+  call TagsParser#Debug(1, "TagsParser#GetQualifiedTagSeparator(" . a:prjKey . ")")
   " Setup the default return data, this is just the global config 
   let l:data = g:TagsParserCtagsQualifiedTagSeparator
 
   " Make sure that the Vim version can do this and that a project config is 
   " defined.
   if v:version >= 700 && exists("g:TagsParserProjectConfig")
-    " Now find the applicable config (if any)
-    let l:prjKey = TagsParser#GetProject()
-
-    if l:prjKey != "" 
+    if a:prjKey != "" 
       " Only set the data to the project value if it exists, otherwise the 
       " default config value will be returned.
-      if exists("g:TagsParserProjectConfig[l:prjKey].qualifiedTagSeparator")
-        let l:data = g:TagsParserProjectConfig[l:prjKey].qualifiedTagSeparator
+      if exists("g:TagsParserProjectConfig[a:prjKey].qualifiedTagSeparator")
+        let l:data = g:TagsParserProjectConfig[a:prjKey].qualifiedTagSeparator
 
         " Check for a + as the first character of the returned data.  If it is 
         " then the default QualifiedTagSeparator should be prepended to this 
@@ -776,14 +774,15 @@ function! TagsParser#GetQualifiedTagSeparator()
         if l:data[0] == '+' && len(l:data) > 1
           let l:data = g:TagsParserCtagsQualifiedTagSeparator . l:data[1:-1]
         endif
-      endif " if exists("g:TagsParserProjectConfig[l:prjKey]. ...
+      endif " if exists("g:TagsParserProjectConfig[a:prjKey]. ...
     else
       " If the project does not exist, return an empty string
       let l:data = ""
-    endif " if l:prjKey != "" 
+    endif " if a:prjKey != "" 
   endif " if v:version >= 700 && exists("g:TagsParserProjectConfig")
 
   " Now return the data
+  call TagsParser#Debug(1, "TagsParser#GetQualifiedTagSeparator() = " . l:data)
   return l:data
 endfunction
 " >>>
@@ -796,21 +795,19 @@ endfunction
 " indicate that the requested function should not be running for files in the 
 " current working directory.  If the TagsParserProjectConfig is not configured 
 " then the global TagsParserDirExcludePattern is returned.
-function! TagsParser#GetDirExcludePattern()
+function! TagsParser#GetDirExcludePattern(prjKey)
+  call TagsParser#Debug(1, "TagsParser#GetDirExcludePattern(" . a:prjKey . ")")
   " Setup the default return data, this is just the global config 
   let l:data = g:TagsParserDirExcludePattern
 
   " Make sure that the Vim version can do this and that a project config is 
   " defined.
   if v:version >= 700 && exists("g:TagsParserProjectConfig")
-    " Now find the applicable config (if any)
-    let l:prjKey = TagsParser#GetProject()
-
-    if l:prjKey != "" 
+    if a:prjKey != "" 
       " Only set the data to the project value if it exists, otherwise the 
       " default config value will be returned.
-      if exists("g:TagsParserProjectConfig[l:prjKey].dirExcludePattern")
-        let l:data = g:TagsParserProjectConfig[l:prjKey].dirExcludePattern
+      if exists("g:TagsParserProjectConfig[a:prjKey].dirExcludePattern")
+        let l:data = g:TagsParserProjectConfig[a:prjKey].dirExcludePattern
 
         " Check for a + as the first character of the returned data.  If it is 
         " then the default DirExcludePattern should be prepended to this 
@@ -818,14 +815,15 @@ function! TagsParser#GetDirExcludePattern()
         if l:data[0] == '+' && len(l:data) > 1
           let l:data = g:TagsParserDirExcludePattern . l:data[1:-1]
         endif
-      endif " if exists("g:TagsParserProjectConfig[l:prjKey]. ...
+      endif " if exists("g:TagsParserProjectConfig[a:prjKey]. ...
     else
       " If the project does not exist, return an empty string
       let l:data = ""
-    endif " if l:prjKey != "" 
+    endif " if a:prjKey != "" 
   endif " if v:version >= 700 && exists("g:TagsParserProjectConfig")
 
   " Now return the data
+  call TagsParser#Debug(1, "TagsParser#GetDirExcludePattern() = " . l:data)
   return l:data
 endfunction
 " >>>
@@ -838,21 +836,19 @@ endfunction
 " indicate that the requested function should not be running for files in the 
 " current working directory.  If the TagsParserProjectConfig is not configured 
 " then the global TagsParserDirIncludePattern is returned.
-function! TagsParser#GetDirIncludePattern()
+function! TagsParser#GetDirIncludePattern(prjKey)
+  call TagsParser#Debug(1, "TagsParser#GetDirIncludePattern(" . a:prjKey . ")")
   " Setup the default return data, this is just the global config 
   let l:data = g:TagsParserDirIncludePattern
 
   " Make sure that the Vim version can do this and that a project config is 
   " defined.
   if v:version >= 700 && exists("g:TagsParserProjectConfig")
-    " Now find the applicable config (if any)
-    let l:prjKey = TagsParser#GetProject()
-
-    if l:prjKey != "" 
+    if a:prjKey != "" 
       " Only set the data to the project value if it exists, otherwise the 
       " default config value will be returned.
-      if exists("g:TagsParserProjectConfig[l:prjKey].dirIncludePattern")
-        let l:data = g:TagsParserProjectConfig[l:prjKey].dirIncludePattern
+      if exists("g:TagsParserProjectConfig[a:prjKey].dirIncludePattern")
+        let l:data = g:TagsParserProjectConfig[a:prjKey].dirIncludePattern
 
         " Check for a + as the first character of the returned data.  If it is 
         " then the default DirIncludePattern should be prepended to this 
@@ -860,14 +856,15 @@ function! TagsParser#GetDirIncludePattern()
         if l:data[0] == '+' && len(l:data) > 1
           let l:data = g:TagsParserDirIncludePattern . l:data[1:-1]
         endif
-      endif " if exists("g:TagsParserProjectConfig[l:prjKey]. ...
+      endif " if exists("g:TagsParserProjectConfig[a:prjKey]. ...
     else
       " If the project does not exist, return an empty string
       let l:data = ""
-    endif " if l:prjKey != "" 
+    endif " if a:prjKey != "" 
   endif " if v:version >= 700 && exists("g:TagsParserProjectConfig")
 
   " Now return the data
+  call TagsParser#Debug(1, "TagsParser#GetDirIncludePattern() = " . l:data)
   return l:data
 endfunction
 " >>>
@@ -880,21 +877,19 @@ endfunction
 " indicate that the requested function should not be running for files in the 
 " current working directory.  If the TagsParserProjectConfig is not configured 
 " then the global TagsParserFileExcludePattern is returned.
-function! TagsParser#GetFileExcludePattern()
+function! TagsParser#GetFileExcludePattern(prjKey)
+  call TagsParser#Debug(1, "TagsParser#GetFileExcludePattern(" . a:prjKey . ")")
   " Setup the default return data, this is just the global config 
   let l:data = g:TagsParserFileExcludePattern
 
   " Make sure that the Vim version can do this and that a project config is 
   " defined.
   if v:version >= 700 && exists("g:TagsParserProjectConfig")
-    " Now find the applicable config (if any)
-    let l:prjKey = TagsParser#GetProject()
-
-    if l:prjKey != "" 
+    if a:prjKey != "" 
       " Only set the data to the project value if it exists, otherwise the 
       " default config value will be returned.
-      if exists("g:TagsParserProjectConfig[l:prjKey].fileExcludePattern")
-        let l:data = g:TagsParserProjectConfig[l:prjKey].fileExcludePattern
+      if exists("g:TagsParserProjectConfig[a:prjKey].fileExcludePattern")
+        let l:data = g:TagsParserProjectConfig[a:prjKey].fileExcludePattern
 
         " Check for a + as the first character of the returned data.  If it is 
         " then the default FileExcludePattern should be prepended to this 
@@ -902,14 +897,15 @@ function! TagsParser#GetFileExcludePattern()
         if l:data[0] == '+' && len(l:data) > 1
           let l:data = g:TagsParserFileExcludePattern . l:data[1:-1]
         endif
-      endif " if exists("g:TagsParserProjectConfig[l:prjKey]. ...
+      endif " if exists("g:TagsParserProjectConfig[a:prjKey]. ...
     else
       " If the project does not exist, return an empty string
       let l:data = ""
-    endif " if l:prjKey != "" 
+    endif " if a:prjKey != "" 
   endif " if v:version >= 700 && exists("g:TagsParserProjectConfig")
 
   " Now return the data
+  call TagsParser#Debug(1, "TagsParser#GetFileExcludePattern() = " . l:data)
   return l:data
 endfunction
 " >>>
@@ -922,21 +918,19 @@ endfunction
 " indicate that the requested function should not be running for files in the 
 " current working directory.  If the TagsParserProjectConfig is not configured 
 " then the global TagsParserFileIncludePattern is returned.
-function! TagsParser#GetFileIncludePattern()
+function! TagsParser#GetFileIncludePattern(prjKey)
+  call TagsParser#Debug(1, "TagsParser#GetFileIncludePattern(" . a:prjKey . ")")
   " Setup the default return data, this is just the global config 
   let l:data = g:TagsParserFileIncludePattern
 
   " Make sure that the Vim version can do this and that a project config is 
   " defined.
   if v:version >= 700 && exists("g:TagsParserProjectConfig")
-    " Now find the applicable config (if any)
-    let l:prjKey = TagsParser#GetProject()
-
-    if l:prjKey != "" 
+    if a:prjKey != "" 
       " Only set the data to the project value if it exists, otherwise the 
       " default config value will be returned.
-      if exists("g:TagsParserProjectConfig[l:prjKey].fileIncludePattern")
-        let l:data = g:TagsParserProjectConfig[l:prjKey].fileIncludePattern
+      if exists("g:TagsParserProjectConfig[a:prjKey].fileIncludePattern")
+        let l:data = g:TagsParserProjectConfig[a:prjKey].fileIncludePattern
 
         " Check for a + as the first character of the returned data.  If it is 
         " then the default FileIncludePattern should be prepended to this 
@@ -944,14 +938,15 @@ function! TagsParser#GetFileIncludePattern()
         if l:data[0] == '+' && len(l:data) > 1
           let l:data = g:TagsParserFileIncludePattern . l:data[1:-1]
         endif
-      endif " if exists("g:TagsParserProjectConfig[l:prjKey]. ...
+      endif " if exists("g:TagsParserProjectConfig[a:prjKey]. ...
     else
       " If the project does not exist, return an empty string
       let l:data = ""
-    endif " if l:prjKey != "" 
+    endif " if a:prjKey != "" 
   endif " if v:version >= 700 && exists("g:TagsParserProjectConfig")
 
   " Now return the data
+  call TagsParser#Debug(1, "TagsParser#GetFileIncludePattern() = " . l:data)
   return l:data
 endfunction
 " >>>
@@ -964,6 +959,7 @@ endfunction
 " g:TagsParserTagsPath path, and then perform some additional checks based on
 " the operation it is supposed to perform
 function! TagsParser#PerformOp(op, file)
+  call TagsParser#Debug(1, "TagsParser#PerformOp(" . a:op . ", " . a:file . ")")
   if a:file == ""
     let l:pathName = expand("%:p:h")
     let l:fileName = expand("%:t")
@@ -974,22 +970,43 @@ function! TagsParser#PerformOp(op, file)
     let l:curFile = fnamemodify(a:file, ":p")
   endif
 
+  call TagsParser#Debug(4, "path = " . l:pathName)
+  call TagsParser#Debug(4, "file (short) = " . l:fileName)
+  call TagsParser#Debug(4, "file = " . l:curFile)
+
   "Make sure that the file we are working on is _not_ a directory
   if isdirectory(l:curFile)
     return
   endif
 
-  let l:tagsPath = TagsParser#GetTagsPath()
-  let l:dirExcludePattern = TagsParser#GetDirExcludePattern()
-  let l:dirIncludePattern = TagsParser#GetDirIncludePattern()
-  let l:fileExcludePattern = TagsParser#GetFileExcludePattern()
-  let l:fileIncludePattern = TagsParser#GetFileIncludePattern()
+  " Get the critical data first.
+  let l:prjKey = TagsParser#GetProject()
+  let l:tagsPath = TagsParser#GetTagsPath(l:prjKey)
 
   "If this is windows change the backslashes to slashes in the path so that 
   "the dir exclude and include patterns will work over multiple directories
   if has('win32')
     let l:pathName = substitute(l:pathName, '\', '/', 'g')
   endif
+
+  " Before we do anything, if the operation is "auto", and the current file is 
+  " not withing a valid project path, or the tag file is not readable, and so 
+  " on, then close the tag window.  Or if the operation is "deletetag" and the 
+  " file exists, but the current tag path is empty, delete the tag file.  And 
+  " then quit.
+  if (a:op == "auto" && g:TagsParserAutoOpenClose == 1) && (l:tagsPath == "" || filereadable(l:pathName . "/" . g:TagsParserTagsDir . "/" .  substitute(l:fileName, " ", "_", "g") . ".tags") == 0 && &filetype =~ s:supportedFileTypes)
+    call TagsParser#CloseTagWindow("close")
+    return
+  elseif a:op == "deletetag" && l:tagsPath == "" && filereadable(l:pathName . "/" . g:TagsParserTagsDir . "/" .  substitute(l:fileName, " ", "_", "g") . ".tags") != 0
+    call delete(l:pathName . "/" . g:TagsParserTagsDir . "/" .  substitute(l:fileName, " ", "_", "g") . ".tags")
+    return
+  endif
+
+  "Now, since we are continuing, get the rest of the project data.
+  let l:dirExcludePattern = TagsParser#GetDirExcludePattern(l:prjKey)
+  let l:dirIncludePattern = TagsParser#GetDirIncludePattern(l:prjKey)
+  let l:fileExcludePattern = TagsParser#GetFileExcludePattern(l:prjKey)
+  let l:fileIncludePattern = TagsParser#GetFileIncludePattern(l:prjKey)
 
   "before we check to see if this file is in within TagsParserTagsPath, do the 
   "simple checks to see if this file name and/or path meet the include or
@@ -1001,13 +1018,7 @@ function! TagsParser#PerformOp(op, file)
     return
   endif
 
-  if l:tagsPath == ""
-    " If the current file is not in a valid path, and the operation defined is 
-    " "deletetag", then remove the tag file.
-    if a:op == "deletetag" && filereadable(l:pathName . "/" . g:TagsParserTagsDir . "/" .  substitute(l:fileName, " ", "_", "g") . ".tags")
-      call delete(l:pathName . "/" . g:TagsParserTagsDir . "/" .  substitute(l:fileName, " ", "_", "g") . ".tags")
-    endif
-  else
+  if l:tagsPath != ""
     let l:tagPathFileMatch = globpath(l:tagsPath, l:fileName)
   
     " Put the path, and file into lowercase if this is windows... Since 
@@ -1021,7 +1032,7 @@ function! TagsParser#PerformOp(op, file)
     if stridx(l:tagPathFileMatch, l:curFile) != -1
       if a:op == "tag"
         call TagsParser#TagFile(a:file)
-      elseif a:op == "open" && g:TagsParserAutoOpenClose == 1 && filereadable(l:pathName . "/" . g:TagsParserTagsDir . "/" .  substitute(l:fileName, " ", "_", "g") . ".tags") && &filetype =~ s:supportedFileTypes
+      elseif (a:op == "open" || a:op == "auto") && g:TagsParserAutoOpenClose == 1 && filereadable(l:pathName . "/" . g:TagsParserTagsDir . "/" .  substitute(l:fileName, " ", "_", "g") . ".tags") && &filetype =~ s:supportedFileTypes
         call TagsParser#OpenTagWindow()
       endif
     endif " if stridx(l:tagPathFileMatch, l:curFile) != -1
@@ -1033,6 +1044,7 @@ endfunction " function! TagsParser#PerformOp(op, file)
 " ./<tagDir>/<file>.tags it will also create the ./<tagDir> directory if it 
 " doesn't exist
 function! TagsParser#TagFile(file)
+  call TagsParser#Debug(1, "TagsParser#TagFile(" . a:file . ")")
   "if the file argument is empty, make it the current file with fully
   "qualified path
   if a:file == ""
@@ -1119,12 +1131,14 @@ endfunction " function! TagFile(file)
 " This will expand The g:TagsParserTagsPath directory list into valid tag
 " files
 function! TagsParser#ExpandTagsPath()
+  call TagsParser#Debug(1, "TagsParser#ExpandTagsPath()")
   if !exists("s:OldTagsPath")
     let s:OldTagsPath = &tags
   endif
 
-  let l:tagsPath = TagsParser#GetTagsPath()
-  let l:tagsLib = TagsParser#GetTagsLib()
+  let l:prjKey = TagsParser#GetProject()
+  let l:tagsPath = TagsParser#GetTagsPath(l:prjKey)
+  let l:tagsLib = TagsParser#GetTagsLib(l:prjKey)
 
   if l:tagsPath != ""
     " for the tags path we must make sure that all \'s are turned into /'s.  
@@ -1143,6 +1157,7 @@ endfunction " function! TagsParser#ExpandTagsPath()
 " when a file is written out.  Except that this function does not need to
 " follow the TagsParserPath rules.
 function! TagsParser#SetupDirectoryTags(dir)
+  call TagsParser#Debug(1, "TagsParser#SetupDirectoryTags(" . a:dir . ")")
   "if the TagsParserOff flag is set, print out an error and do nothing
   if g:TagsParserOff != 0
     echomsg "TagsParser cannot tag files in this directory because plugin is turned off"
@@ -1166,7 +1181,7 @@ function! TagsParser#SetupDirectoryTags(dir)
   "can be detected.  Save the current directory first so that we can return to 
   "it later.
   let l:cwd = getcwd()
-  silent exec "cd " . l:dir
+  silent exec TagsParser#Exec("cd " . l:dir)
 
   "find all files in this directory and all subdirectories
   let l:fileList = globpath(l:dir . '/**,' . l:dir, '*')
@@ -1182,11 +1197,12 @@ function! TagsParser#SetupDirectoryTags(dir)
   endif
 
   "Return to the previous current directory
-  silent exec "cd " . l:cwd
+  silent exec TagsParser#Exec("cd " . l:cwd)
 endfunction " function! TagsParser#SetupDirectoryTags(dir)
 " >>>
 " TagsParserDisplayEntry - Used to recursively display tag information <<<
 function! TagsParser#DisplayEntry(entry)
+  call TagsParser#Debug(1, "TagsParser#DisplayEntry(" . a:entry.tag . ")")
   " set the display string, tag or signature
   if g:TagsParserDisplaySignature == 1
     let l:dispString = a:entry.pattern
@@ -1245,6 +1261,7 @@ endfunction " function DisplayEntry(entry)
 " >>>
 " TagsParserDisplayTags - This will display The tags for the current file <<<
 function! TagsParser#DisplayTags()
+  call TagsParser#Debug(1, "TagsParser#DisplayTags()")
   "For some reason the ->Append(), ->Set() and ->Delete() functions don't
   "work unless the Perl buffer object is the current buffer... So, change
   "to the tags buffer.
@@ -1263,7 +1280,7 @@ function! TagsParser#DisplayTags()
     let s:origFileType = &filetype
     let s:origFileName = expand("%:t")
     let s:origFileTagFileName = expand("%:p:h") . "/" . g:TagsParserTagsDir . "/" . expand("%:t") . ".tags"
-    exec bufwinnr(l:tagBufNum) . "wincmd w"
+    exec TagsParser#Exec(bufwinnr(l:tagBufNum) . "wincmd w")
   endif
 
   "before we start drawing the tags window, check for the update flag, and
@@ -1272,7 +1289,7 @@ function! TagsParser#DisplayTags()
         \ s:origFileType !~ s:supportedFileTypes
     "we must return to the previous window before we can just exit
     if l:curBufNum != l:tagBufNum
-      exec bufwinnr(s:origFileName) . "wincmd w"
+      exec TagsParser#Exec(bufwinnr(s:origFileName) . "wincmd w")
     endif
 
     return
@@ -1381,7 +1398,9 @@ function! TagsParser#DisplayTags()
 
       " first clean the window, using the "_ register to prevent the text from 
       " being collected into the "" register.
-      %delete _
+      " note - % or 1,$ ranges cannot be used because they seem to pickup 
+      " incorrect values for the last line number
+      exec TagsParser#Exec("1," . line("$") . ":delete _")
 
       " then set the first line
       call setline(0, "")
@@ -1418,7 +1437,7 @@ function! TagsParser#DisplayTags()
         " folded, fold it.
         if l:foldLevel == -1 && exists('l:line[1].members')
           if exists('l:line[1].parent') && foldclosed(l:index + 2) == -1
-            exec l:index + 2 . "foldclose"
+            exec TagsParser#Exec(l:index + 2 . "foldclose")
           else
             for l:memberKey in keys(l:line[1].members)
               for l:possibleType in s:subTypeMap[s:origFileType][l:line[1].tagtype]
@@ -1433,7 +1452,7 @@ function! TagsParser#DisplayTags()
 
             " if we made it this far then this tag should be folded
             if foldclosed(l:index + 2) == -1
-              exec l:index + 2 . "foldclose"
+              exec TagsParser#Exec(l:index + 2 . "foldclose")
             endif
           endif " if exists('l:line[1].parent') && foldclosed(l:index ...
         endif " if l:foldLevel == -1 && exists('l:line[1].members')
@@ -1452,7 +1471,7 @@ function! TagsParser#DisplayTags()
           " fold it
           for l:heading in s:typeMapHeadingFold[s:origFileType]
             if l:line[0] =~ '^\s\+' . l:heading . ' {{{\d\+$' && foldclosed(l:index + 2) == -1
-              exec l:index + 2 . "foldclose"
+              exec TagsParser#Exec(l:index + 2 . "foldclose")
             endif
           endfor
         endif " if exists('s:typeMapHeadingFold[s:origFileType]') && ...
@@ -1485,7 +1504,7 @@ function! TagsParser#DisplayTags()
   "go back to the window we were in before moving here, if we were not
   "originally in the tags buffer
   if l:curBufNum != l:tagBufNum
-    exec bufwinnr(s:origFileName) . "wincmd w"
+    exec TagsParser#Exec(bufwinnr(s:origFileName) . "wincmd w")
 
     if g:TagsParserHighlightCurrentTag == 1
       call TagsParser#HighlightTag(1)
@@ -1498,6 +1517,7 @@ endfunction " function! TagsParser#DisplayTags()
 " parsed yet, or the tag file has been updated), and saves it into a global
 " Perl hash struct for use by the function which prints out the data
 function! TagsParser#ParseCurrentFile()
+  call TagsParser#Debug(1, "TagsParser#ParseCurrentFile()")
   "get the name of the tag file to parse, for the tag file name itself,
   "replace any spaces in the original filename with underscores
   let l:tagFileName = expand("%:p:h") . "/" . g:TagsParserTagsDir . "/" . expand("%:t") . ".tags"
@@ -1543,6 +1563,10 @@ function! TagsParser#ParseCurrentFile()
 
     " initialize this entry to empty
     let s:tags[l:tagFileName] = { }
+
+    " Get the tag separator for this file
+    let l:prjKey = TagsParser#GetProject()
+    let l:qualifiedTagSeparator = TagsParser#GetQualifiedTagSeparator(l:prjKey)
 
     " open up the tag file and read the data
     for l:line in readfile(l:tagFileName)
@@ -1595,9 +1619,6 @@ function! TagsParser#ParseCurrentFile()
         let s:tags[l:tagFileName][l:type] = [ ]
       endif
 
-      let l:qualifiedTagSeparator =
-            \ TagsParser#GetQualifiedTagSeparator()
-
       " Only create the tag if the l:tmpEntry.tag does not contain 
       " a separation character such as . or :... However, a tag is not 
       " a qualified tag if the tag name appears in the search pattern.
@@ -1609,9 +1630,9 @@ function! TagsParser#ParseCurrentFile()
     " before worrying about anything else, make up a line number-oriented hash 
     " of the tags, this will make finding a match, or what the current tag is 
     " easier
-    if exists('s:tagsByLine[l:tagFileName]')
-      call remove(s:tagsByLine, l:tagFileName)
-    endif
+    "if exists('s:tagsByLine[l:tagFileName]')
+    "  call remove(s:tagsByLine, l:tagFileName)
+    "endif
     let s:tagsByLine[l:tagFileName] = { }
 
     for [ l:key, l:typeArray ] in items(s:tags[l:tagFileName])
@@ -1653,7 +1674,7 @@ function! TagsParser#ParseCurrentFile()
               " equal to the line number of the current tagEntry.  Instead of 
               " just doing line <= line add 0 to the line numbers to prevent 
               " them from being compared like strings.
-              if l:tmpEntry.tag == l:tagEntry[l:tagTypeName] && (0 + l:tmpEntry.line) <= (0 + l:tagEntry.line)
+              if (l:tmpEntry.tag == l:tagEntry[l:tagTypeName]) && ((0 + l:tmpEntry.line) <= (0 + l:tagEntry.line))
                 if !exists('l:tmpEntry.members')
                   let l:tmpEntry.members = { }
                 endif
@@ -1718,6 +1739,7 @@ endfunction
 " >>>
 " TagsParserOpenTagWindow - Opens up The tag window <<<
 function! TagsParser#OpenTagWindow()
+  call TagsParser#Debug(1, "TagsParser#OpenTagWindow()")
   "ignore events while opening the tag window
   let l:oldEvents = &eventignore
   set eventignore=all
@@ -1732,37 +1754,104 @@ function! TagsParser#OpenTagWindow()
   "parse the current file
   call TagsParser#ParseCurrentFile()
 
-  "open the tag window if it is not viewable
-  if bufwinnr(bufnr(TagsParser#WindowName())) == -1
-    " Resize the Vim window, unless NoResize is set, or the Tag Window was 
-    " viewable already from within another tab.
-    if g:TagsParserHorizontalSplit != 1
-      if g:TagsParserNoResize == 0 && s:newColumns != &columns
-        "track the current window size, so that when we close the tags tab, if 
-        "we were not able to resize the current window, that we don't decrease 
-        "it any more than we increased it when we opened the tab
-        let s:origColumns = &columns
-        "open the tag window, + 1 for the split divider
-        let &columns = &columns + g:TagsParserWindowSize + 1
-        let s:columnsAdded = &columns - s:origColumns
-        let s:newColumns = &columns
-      endif " if g:TagsParserNoResize == 0
-    else
-      if g:TagsParserNoResize == 0 && s:newLines != &lines
-        "track the current window size, so that when we close the tags tab, if 
-        "we were not able to resize the current window, that we don't decrease 
-        "it any more than we increased it when we opened the tab
-        let s:origLines = &lines
-        "open the tag window, + 1 for the split divider
-        let &lines = &lines + g:TagsParserWindowSize + 1
-        let s:linesAdded = &lines - s:origLines
-        let s:newLines = &lines
-      endif " if g:TagsParserNoResize == 0
-    endif " if g:TagsParserHorizontalSplit != 1
+  let l:tagWindowName = TagsParser#WindowName()
+  if bufwinnr(bufnr(l:tagWindowName)) == -1
+    " make a list of all the buffers currently opened in this tab, if a tag 
+    " window is already opened, but the tab number is wrong, move to that 
+    " window and open the correct buffer.  But only if this is Vim 7.0.
+    let l:tagWinOpen = -1
+    if v:version >= 700
+      for l:bufnum in tabpagebuflist()
+        if stridx(bufname(l:bufnum), g:TagsParserWindowName) == 0
+          let l:tagWinOpen = bufwinnr(l:bufnum)
+        endif
+      endfor
+    endif " if v:version >= 700
 
-    " Open and resize the tag window
-    exec s:TagsWindowPosition . " split " . TagsParser#WindowName()
-    exec s:TagsWindowPosition . " resize " . g:TagsParserWindowSize
+    " If this is not Vim 7.0, this if will never be true
+    if l:tagWinOpen != -1
+      " In this case a tag window is already open, move to the correct window 
+      " and open the proper buffer.
+      exec TagsParser#Exec(l:tagWinOpen . "wincmd w")
+
+      " There is a possibility that the correct buffer for this window does 
+      " not exist yet, if this is the case, we should open the tag window, but 
+      " we should not resize the Vim window.
+      if bufnr(l:tagWindowName) == -1
+        exec TagsParser#Exec("edit " . l:tagWindowName)
+      else
+        exec TagsParser#Exec(bufnr(l:tagWindowName) . "buffer")
+      endif
+
+      " If a window was opened, set the last file displayed as empty to force 
+      " an update
+      let s:lastFileDisplayed = ""
+
+      " force new window to have the correct size.
+      exec TagsParser#Exec(s:TagsWindowPosition . " resize " . g:TagsParserWindowSize)
+    else
+      " In this case no window is open.  Resize the Vim window, unless 
+      " NoResize is set, or the Tag Window was viewable already from within 
+      " another tab.
+      if g:TagsParserHorizontalSplit != 1
+        if g:TagsParserNoResize == 0 && s:newColumns != &columns
+          " track the current window size, so that when we close the tags tab, 
+          " if we were not able to resize the current window, that we don't 
+          " decrease it any more than we increased it when we opened the tab
+          let s:origColumns = &columns
+          "open the tag window, + 1 for the split divider
+          let &columns = &columns + g:TagsParserWindowSize + 1
+          let s:columnsAdded = &columns - s:origColumns
+          let s:newColumns = &columns
+        endif " if g:TagsParserNoResize == 0
+      else
+        if g:TagsParserNoResize == 0 && s:newLines != &lines
+          " track the current window size, so that when we close the tags tab, 
+          " if we were not able to resize the current window, that we don't  
+          " decrease it any more than we increased it when we opened the tab
+          let s:origLines = &lines
+          "open the tag window, + 1 for the split divider
+          let &lines = &lines + g:TagsParserWindowSize + 1
+          let s:linesAdded = &lines - s:origLines
+          let s:newLines = &lines
+        endif " if g:TagsParserNoResize == 0
+      endif " if g:TagsParserHorizontalSplit != 1
+
+      " Open the tag window, if the buffer has already been opened, don't do 
+      " a normal split, do an sbuffer command.
+      if bufnr(l:tagWindowName) != -1
+        exec TagsParser#Exec(s:TagsWindowPosition . " sbuffer " . bufnr(l:tagWindowName))
+      else
+        exec TagsParser#Exec(s:TagsWindowPosition . " split " . l:tagWindowName)
+      endif
+
+      " If a window was opened, set the last file displayed as empty to force 
+      " an update
+      let s:lastFileDisplayed = ""
+
+      " force the new window to have the correct size.
+      exec TagsParser#Exec(s:TagsWindowPosition . " resize " . g:TagsParserWindowSize)
+    endif
+
+    " Save the current tag window size, even if it was not resized.
+    if g:TagsParserHorizontalSplit != 1
+      if winwidth(bufwinnr(l:tagWindowName)) != &columns
+        let s:tagsWindowSize = winwidth(bufwinnr(l:tagWindowName))
+      endif
+    else
+      if winheight(bufwinnr(l:tagWindowName)) != &lines
+        let s:tagsWindowSize = winheight(bufwinnr(l:tagWindowName))
+      endif
+    endif
+
+    " Set the tag window to keep a constant size if configured
+    if g:TagsParserTagWindowFixedSize == 1
+      if g:TagsParserHorizontalSplit != 1
+        setlocal winfixwidth
+      else
+        setlocal winfixheight
+      endif
+    endif
 
     " Configure the Tag Window
     setlocal nonumber
@@ -1808,49 +1897,6 @@ function! TagsParser#OpenTagWindow()
     nnoremap <buffer> <silent> <CR> :call TagsParser#SelectTag()<CR>
     nnoremap <buffer> <silent> <2-LeftMouse> :call TagsParser#SelectTag()<CR>
 
-    "the augroup we are going to setup will override this initial
-    "autocommand so stop it from running
-    autocmd! TagsParserBufEnterWindowNotOpen
-
-    "setup and autocommand so that when you enter a new buffer, the new file 
-    "is parsed and then displayed
-    augroup TagsParserBufEnterEvents
-      autocmd!
-      autocmd BufEnter ?* call TagsParser#HandleBufEnter()
-
-      "when a file is written, add an event so that the new tag file is 
-      "parsed and displayed (if there are updates)
-      autocmd BufWritePost ?* call TagsParser#ParseCurrentFile() |
-            \ call TagsParser#DisplayTags()
-
-      "properly handle the BufWinLeave event
-      autocmd BufWinLeave ?* call TagsParser#HandleBufWinLeave()
-
-      "make sure that we don't accidentally close the Vim session when 
-      "loading up a new buffer
-      autocmd BufAdd * let s:newBufBeingCreated = 1
-    augroup END
-
-    "If this is Vim version >= 7.0 then we need to install some additional 
-    "events that will detect if the tag window is being closed in a tab while 
-    "still being open in another tab (as if with the :q command).
-    if v:version >= 700
-      augroup TagsParserVer7WinEvents
-        autocmd!
-        autocmd WinLeave ?* let s:curNumWindows = winnr("$") |
-              \ let s:winLeaveBufName = expand("<afile>")
-        autocmd WinEnter ?* call TagsParser#HandleWinEnter()
-      augroup END
-    endif
-
-    "add the event to do the auto tag highlighting if the event is set
-    if g:TagsParserHighlightCurrentTag == 1
-      augroup TagsParserCursorHoldEvent
-        autocmd!
-        autocmd CursorHold ?* call TagsParser#HighlightTag(0)
-      augroup END
-    endif
-
     if !hlexists('TagsParserFileName')
       hi link TagsParserFileName Underlined
     endif
@@ -1877,7 +1923,57 @@ function! TagsParser#OpenTagWindow()
     syntax match TagsParserFileName '^\w\S*'
     syntax match TagsParserTypeName '^\t*- .*' contains=TagsParserFoldMarker
     syntax match TagsParserFoldMarker '{{{.*\|\s*}}}'
-  endif " if bufwinnr(bufnr(TagsParser#WindowName())) == -1
+  endif " if bufwinnr(bufnr(l:tagWindowName)) == -1
+
+  "the augroup we are going to setup will override this initial
+  "autocommand so stop it from running
+  autocmd! TagsParserBufEnterWindowNotOpen
+
+  "setup and autocommand so that when you enter a new buffer, the new file 
+  "is parsed and then displayed
+  augroup TagsParserBufEnterEvents
+    autocmd!
+    autocmd BufEnter ?* call TagsParser#Debug(2, "BufEnter - " . 
+          \ expand("<amatch>")) | call TagsParser#HandleBufEnter()
+
+    "when a file is written, add an event so that the new tag file is 
+    "parsed and displayed (if there are updates)
+    autocmd BufWritePost ?* call TagsParser#Debug(2, "BufWritePost - " . 
+          \ expand("<amatch>")) | call TagsParser#ParseCurrentFile() |
+          \ call TagsParser#DisplayTags()
+
+    "properly handle the BufWinLeave event
+    autocmd BufWinLeave ?* call TagsParser#Debug(2, "BufWinLeave - " . 
+          \ expand("<amatch>")) | call TagsParser#HandleBufWinLeave()
+
+    "make sure that we don't accidentally close the Vim session when 
+    "loading up a new buffer
+    autocmd BufAdd * call TagsParser#Debug(2, "BufAdd - " . 
+          \ expand("<amatch>")) | let s:newBufBeingCreated = 1
+  augroup END
+
+  "If this is Vim version >= 7.0 then we need to install some additional 
+  "events that will detect if the tag window is being closed in a tab while 
+  "still being open in another tab (as if with the :q command).
+  if v:version >= 700
+    augroup TagsParserVer7WinEvents
+      autocmd!
+      autocmd WinLeave ?* call TagsParser#Debug(2, "WinLeave - " . 
+            \ expand("<amatch>")) | let s:curNumWindows = winnr("$") |
+            \ let s:winLeaveBufName = expand("<afile>")
+      autocmd WinEnter ?* call TagsParser#Debug(2, "WinEnter - " . 
+            \ expand("<amatch>")) |  call TagsParser#HandleWinEnter()
+    augroup END
+  endif
+
+  "add the event to do the auto tag highlighting if the event is set
+  if g:TagsParserHighlightCurrentTag == 1
+    augroup TagsParserCursorHoldEvent
+      autocmd!
+      autocmd CursorHold ?* call TagsParser#Debug(2, "CursorHold - " . 
+            \ expand("<amatch>")) | call TagsParser#HighlightTag(0)
+    augroup END
+  endif
 
   "display the tags
   call TagsParser#DisplayTags()
@@ -1889,7 +1985,7 @@ function! TagsParser#OpenTagWindow()
 
   "go back to the previous window, find the winnr for the buffer, and
   "do a :<N>wincmd w
-  exec bufwinnr(s:origFileName) . "wincmd w"
+  exec TagsParser#Exec(bufwinnr(s:origFileName) . "wincmd w")
 
   "un ignore events 
   let &eventignore=l:oldEvents
@@ -1898,6 +1994,7 @@ endfunction
 " >>>
 " TagsParserCloseTagWindow - Closes The tags window <<<
 function! TagsParser#CloseTagWindow(closeCommand)
+  call TagsParser#Debug(1, "TagsParser#CloseTagWindow()")
   "ignore events while closing the tag window
   let l:oldEvents = &eventignore
   set eventignore=all
@@ -1922,19 +2019,39 @@ function! TagsParser#CloseTagWindow(closeCommand)
     endif
 
     "go to and close the tags window
-    exec bufwinnr(TagsParser#WindowName()) . "wincmd w"
-    exec a:closeCommand
+    exec TagsParser#Exec(bufwinnr(TagsParser#WindowName()) . "wincmd w")
+    exec TagsParser#Exec(a:closeCommand)
     
     "now go back to the file we were just in assuming it wasn't the
     "tags window in which case this will simply fail silently, and we'll be in 
     "a different window anyway.
-    exec bufwinnr(l:curBufNum) . "wincmd w"
+    exec TagsParser#Exec(bufwinnr(l:curBufNum) . "wincmd w")
   endif " if bufwinnr(bufnr(TagsParser#WindowName())) != -1
 
-  "resize the Vim window if it is allowed
-  if g:TagsParserNoResize == 0
-    "If the l:tagWindowSize variable is not 0, resize the Vim window.
-    if s:tagsWindowSize != 0 
+  " Find out if there are any tabs that are viewing the tag window.
+  let l:tagWinOpen = 0
+  if v:version >=  700
+    let l:bufList = []
+    " create a list of currently open buffers
+    for l:tabnum in range(tabpagenr("$"))
+      let l:tabnum += 1
+      call extend(l:bufList, tabpagebuflist(l:tabnum))
+    endfor
+
+    " Now find out which of the open buffers are tag windows (if any)
+    for l:bufnum in l:bufList
+      if (stridx(bufname(l:bufnum), g:TagsParserWindowName) == 0)
+        let l:tagWinOpen += 1
+      endif
+    endfor
+  endif
+
+  " Resize the Vim window if it is allowed, and there are no tag windows being 
+  " viewed in other tabs.
+  if g:TagsParserNoResize == 0 && l:tagWinOpen == 0
+    "If the s:tagsWindowSize variable is greater than 0, resize the Vim 
+    "window.
+    if s:tagsWindowSize > 0 
       "before resizing, check to see if this is a horizontally or vertically 
       "split tag window.
       if g:TagsParserHorizontalSplit != 1
@@ -1956,6 +2073,9 @@ function! TagsParser#CloseTagWindow(closeCommand)
           let &lines = &lines - g:TagsParserWindowSize - 1
         endif
       endif " if g:TagsParserHorizontalSplit != 1
+      " Now that the window has been resized, set the current tag window size 
+      " to 0
+      let s:tagsWindowSize = 0
     endif " if s:tagsWindowSize != 0 
   endif " if g:TagsParserNoResize == 0
 
@@ -1976,12 +2096,12 @@ function! TagsParser#CloseTagWindow(closeCommand)
 
   " Reinstall the BufEnter events for when the Tag Window is not open.
   augroup TagsParserBufEnterWindowNotOpen
-    autocmd BufEnter ?* call TagsParser#PerformOp("open", "")
-
-    if v:version >= 700
-      autocmd TabEnter ?* call TagsParser#TabCleanup()
-    endif
+    autocmd BufEnter ?* call TagsParser#Debug(2, "BufEnter - " . 
+          \ expand("<amatch>")) | call TagsParser#PerformOp("open", "")
   augroup END
+
+  " Now set the tags path back to the original path.
+  let &tags = s:OldTagsPath 
 
   "un ignore events 
   let &eventignore=l:oldEvents
@@ -1990,6 +2110,7 @@ endfunction " TagsParserCloseTagWindow
 " >>>
 " TagsParserToggle - Will toggle The tags window open or closed <<<
 function! TagsParser#Toggle()
+  call TagsParser#Debug(1, "TagsParser#Toggle()")
   "if the TagsParserOff flag is set, print out an error and do nothing
   if g:TagsParserOff != 0
     echomsg "TagsParser window cannot be opened because plugin is turned off"
@@ -2021,19 +2142,26 @@ endfunction " TagsParserToggle
 " >>>
 " TagsParserHandleBufEnter - handles The BufEnter event <<<
 function! TagsParser#HandleBufEnter()
+  call TagsParser#Debug(1, "TagsParser#HandleBufEnter()")
+  call TagsParser#Debug(4, "bufname('%') = " . bufname('%'))
   "if the tag window is viewable, save it's width
-  if bufwinnr(bufnr(TagsParser#WindowName())) != -1
+  let l:tagWindowName = TagsParser#WindowName()
+  if bufwinnr(bufnr(l:tagWindowName)) != -1
     if g:TagsParserHorizontalSplit != 1
-      let s:tagsWindowSize = winwidth(bufnr(TagsParser#WindowName()))
+      if winwidth(bufwinnr(l:tagWindowName)) != &columns
+        let s:tagsWindowSize = winwidth(bufwinnr(l:tagWindowName))
+      endif
     else
-      let s:tagsWindowSize = winheight(bufwinnr(TagsParser#WindowName()))
+      if winheight(bufwinnr(l:tagWindowName)) != &lines
+        let s:tagsWindowSize = winheight(bufwinnr(l:tagWindowName))
+      endif
     endif
   endif
 
   "Before we do anything else, first check if this is the tags window, and if 
   "all other windows are closed.  If this is true then just quit everything 
   "now.
-  if s:closedBufName != "" && bufname("%") == TagsParser#WindowName() && winbufnr(2) == -1
+  if s:closedBufName != "" && bufname("%") == l:tagWindowName && winbufnr(2) == -1
     " If this is Vim 7.0 or greater, make sure that this is the last tabpage 
     " before quiting...  If it is a version less than 7.0 then just quit.
     if (v:version >= 700 && tabpagenr() == 1 && tabpagenr("$") == 1) || v:version < 700
@@ -2044,7 +2172,7 @@ function! TagsParser#HandleBufEnter()
       let l:bufnr = 1
       while bufexists(l:bufnr) != -1
         if getbufvar(l:bufnr, "&modified")
-          exec l:bufnr . "buffer!"
+          exec TagsParser#Exec(l:bufnr . "buffer!")
           echomsg "TagsParser - qall canceled by user, moved to first modified buffer"
           return
         endif
@@ -2053,13 +2181,39 @@ function! TagsParser#HandleBufEnter()
       " If there are more tabpages left just quit out of this Tag Window so 
       " that the next tab will be activated...  This statement should only be 
       " reached if the Vim version is >= 7.0 but there are more tab pages 
-      " left.  So we should just turn off events and do a tabclose.
-      let l:oldEvents = &eventignore
-      set eventignore=all
-      tabclose
-      let &eventignore=l:oldEvents
-      unlet l:oldEvents
-      "call TagsParser#CloseTagWindow("tabclose")
+      " left.  So we should just turn off events and do a tabclose, unless 
+      " there are no more tag windows viewable.  If that is the case then we 
+      " should close the tag window.
+      let l:bufList = []
+      for l:tabnum in range(tabpagenr("$"))
+        let l:tabnum += 1
+        " create a list of currently open buffers
+        call extend(l:bufList, tabpagebuflist(l:tabnum))
+      endfor
+
+      " Now find out which of the open buffers are tag windows (if any), 
+      " besides the current one.
+      let l:tagWinOpen = 0
+      for l:bufnum in l:bufList
+        if (stridx(bufname(l:bufnum), g:TagsParserWindowName) == 0) && (bufname(l:bufnum) != l:tagWindowName)
+          let l:tagWinOpen += 1
+        endif
+      endfor
+      
+      " If there is no more tag windows open, close it down, otherwise just 
+      " close this tab.
+      if l:tagWinOpen == 0
+        " Just supply an empty string because there are no more tag windows 
+        " left to close.  Set the current tag window size so that the window 
+        " will get resized.
+        call TagsParser#CloseTagWindow("tabclose")
+      else
+        let l:oldEvents = &eventignore
+        set eventignore=all
+        tabclose
+        let &eventignore=l:oldEvents
+        unlet l:oldEvents
+      endif
     endif " if (v:version >= 700 && tabpagenr() == 1 && tabpagenr("$") ...
   endif
 
@@ -2074,14 +2228,7 @@ function! TagsParser#HandleBufEnter()
   "if the auto open/close flag is set, see if there is a tag file for the
   "new buffer, if there is, call open, otherwise, call close
   if g:TagsParserAutoOpenClose == 1
-    let l:tagFileName = expand("%:p:h") . "/" . g:TagsParserTagsDir . "/" .
-          \ substitute(expand("%:t"), " ", "_", "g") . ".tags"
-
-    if !filereadable(l:tagFileName)
-      call TagsParser#CloseTagWindow("close")
-    else
-      call TagsParser#OpenTagWindow()
-    endif
+    call TagsParser#PerformOp("auto", "")
   else
     "else parse the current file and call display tags
     call TagsParser#ParseCurrentFile()
@@ -2096,6 +2243,8 @@ endfunction " function! TagsParser#HandleBufEnter()
 ">>>
 " TagsParserHandleBufWinLeave - handles The BufWinLeave event <<<
 function! TagsParser#HandleBufWinLeave()
+  call TagsParser#Debug(1, "TagsParser#HandleBufWinLeave()")
+  call TagsParser#Debug(4, "bufname('%') = " . bufname('%'))
   "if we are unloading the tags window, and the auto open/close flag is on,
   "turn it off
   if bufname("%") == TagsParser#WindowName()
@@ -2115,6 +2264,7 @@ endfunction
 ">>>
 " TagsParserHandleWinEnter - Handles the WinEnter event for Vim 7.0 <<<
 function! TagsParser#HandleWinEnter()
+  call TagsParser#Debug(1, "TagsParser#HandleWinEnter()")
   " So... if the current number of windows is 1 less than the value stored by 
   " the WinLeave event, and if the name of buffer caught in the WinLeave event 
   " is the Tag Window name, but the s:closedBufName variable has not been set, 
@@ -2137,22 +2287,9 @@ function! TagsParser#HandleWinEnter()
   let s:winLeaveBufName = ""
 endfunction
 " >>>
-" TagsParserTabCleanup - Removes the tag window from tabs <<<
-function! TagsParser#TabCleanup()
-  "if the window exists, find it and close it
-  if bufwinnr(bufnr(TagsParser#WindowName())) != -1
-    "save current file bufnr
-    let l:curBufNum = bufnr("%")
-    exec bufwinnr(TagsParser#WindowName()) . "wincmd w"
-    close
-    "now go back to the file we were just in assuming it wasn't the
-    "tags window in which case this will simply fail silently
-    exec bufwinnr(l:curBufNum) . "wincmd w"
-  endif
-endfunction
-">>>
 " TagsParserSelectTag - activates a tag (if it is a tag) <<<
 function! TagsParser#SelectTag()
+  call TagsParser#Debug(1, "TagsParser#SelectTag()")
   "before we start finding a tag, make sure we are not on the first line of 
   "the tag window
   if line(".") == 1
@@ -2167,7 +2304,7 @@ function! TagsParser#SelectTag()
     "clear out any previous match
     if s:matchedTagWasFolded == 1
       while(len(s:matchedTagLines) != 0)
-        exec s:matchedTagLines[0][0] . "," . s:matchedTagLines[0][1] . "foldclose"
+        exec TagsParser#Exec(s:matchedTagLines[0][0] . "," . s:matchedTagLines[0][1] . "foldclose")
         call remove(s:matchedTagLines, 0)
       endwhile
       let s:matchedTagWasFolded = 0
@@ -2198,24 +2335,24 @@ function! TagsParser#SelectTag()
           let s:matchedTagLines[0][1] = line("$")
         endif
 
-        exec s:matchedTagLines[0][0] . "," . s:matchedTagLines[0][1] . "foldopen"
+        exec TagsParser#Exec(s:matchedTagLines[0][0] . "," . s:matchedTagLines[0][1] . "foldopen")
         let s:matchedTagWasFolded = 1
       endwhile
 
       " now match this tag
-      exec 'match TagsParserHighlight /\%' . line(".") . 'l\S.*\%( {{{\)\@=/'
+      exec TagsParser#Exec('match TagsParserHighlight /\%' . line(".") . 'l\S.*\%( {{{\)\@=/')
       let s:matchedTagLine = line(".")
 
       " go to the proper window, go the correct line, unfold it (if 
       " necessary), move to the correct word (the tag) and finally, set a mark
-      exec bufwinnr(s:origFileName) . "wincmd w"
-      exec s:globalPrintData[l:indexNum][1].line
+      exec TagsParser#Exec(bufwinnr(s:origFileName) . "wincmd w")
+      exec TagsParser#Exec(s:globalPrintData[l:indexNum][1].line)
 
       " now find out where the tag is on the current line
       let l:position = match(getline("."), '\s\zs' . s:globalPrintData[l:indexNum][1].tag)
       " move to that column if we got a valid value
       if l:position != -1
-        exec 'normal! 0' . l:position . 'l'
+        exec TagsParser#Exec('normal! 0' . l:position . 'l')
       endif
 
       if foldclosed(".") != -1
@@ -2243,6 +2380,7 @@ endfunction
 " >>>
 " TagsParserHighlightTag - highlights The tag that the cursor is on <<<
 function! TagsParser#HighlightTag(resetCursor)
+  call TagsParser#Debug(1, "TagsParser#HighlightTag(" . a:resetCursor . ")")
   "if this buffer is unmodifiable, do nothing
   if &modifiable == 0
     return
@@ -2267,13 +2405,13 @@ function! TagsParser#HighlightTag(resetCursor)
   set eventignore=all
 
   "goto the tags window
-  exec bufwinnr(l:tagBufNum) . "wincmd w"
+  exec TagsParser#Exec(bufwinnr(l:tagBufNum) . "wincmd w")
   
   if v:version >= 700 && g:TagsParserForceUsePerl != 1
     "clear out any previous match
     if s:matchedTagWasFolded == 1
       while(len(s:matchedTagLines) != 0)
-        exec s:matchedTagLines[0][0] . "," . s:matchedTagLines[0][1] . "foldclose"
+        exec TagsParser#Exec(s:matchedTagLines[0][0] . "," . s:matchedTagLines[0][1] . "foldclose")
         call remove(s:matchedTagLines, 0)
       endwhile
       let s:matchedTagWasFolded = 0
@@ -2327,12 +2465,12 @@ function! TagsParser#HighlightTag(resetCursor)
             let s:matchedTagLines[0][1] = line("$")
           endif
 
-          exec s:matchedTagLines[0][0] . "," . s:matchedTagLines[0][1] . "foldopen"
+          exec TagsParser#Exec(s:matchedTagLines[0][0] . "," . s:matchedTagLines[0][1] . "foldopen")
           let s:matchedTagWasFolded = 1
         endwhile
 
         " now match this tag
-        exec 'match TagsParserHighlight /\%' . l:tagLine . 'l\S.*\%( {{{\)\@=/'
+        exec TagsParser#Exec('match TagsParserHighlight /\%' . l:tagLine . 'l\S.*\%( {{{\)\@=/')
         let s:matchedTagLine = l:tagLine
 
         " now that the tag has been highlighted, go to the tag and make the 
@@ -2362,7 +2500,7 @@ function! TagsParser#HighlightTag(resetCursor)
   endif
 
   "go back to the old window
-  exec bufwinnr(l:curBufNum) . "wincmd w"
+  exec TagsParser#Exec(bufwinnr(l:curBufNum) . "wincmd w")
 
   "un ignore events 
   let &eventignore=l:oldEvents
@@ -2380,6 +2518,7 @@ endfunction
 " >>>
 " TagsParserOff - function to turn off all TagsParser functionality <<<
 function! TagsParser#Off()
+  call TagsParser#Debug(1, "TagsParser#Off()")
   "only do something if The TagsParser is not off already
   if g:TagsParserOff == 0
     "to turn off the TagsParser, call the TagsParserCloseTagWindow() function,
@@ -2391,6 +2530,7 @@ function! TagsParser#Off()
     
     autocmd! TagsParserAutoCommands
     autocmd! TagsParserBufEnterWindowNotOpen
+    autocmd! TagsParserAlwaysOnCommands
 
     "finally, set the TagsParserOff flag to 1
     let g:TagsParserOff = 1
@@ -2399,45 +2539,51 @@ endfunction
 " >>>
 " TagsParserOn - function to turn all TagsParser functionality back on <<<
 function! TagsParser#On()
-  "only do something if The TagsParser is off
-  if g:TagsParserOff != 0
-    if g:TagsParserNoTagWindow == 0
-      augroup TagsParserAutoCommands
-        autocmd!
-        "setup an autocommand that will expand the path described by
-        "g:TagsParserTagsPath into a valid tag path
-        autocmd VimEnter * call TagsParser#ExpandTagsPath() |
-              \ call TagsParser#PerformOp("open", "")
+  call TagsParser#Debug(1, "TagsParser#On()")
 
-        "setup an autocommand so that when a file is written to it writes a tag
-        "file if it a file that is somewhere within the tags path or the
-        "g:TagsParserTagsPath path
-        autocmd BufWritePost ?* call TagsParser#PerformOp("tag", "")
-      augroup END
+  augroup TagsParserAutoCommands
+    autocmd!
+    "setup an autocommand that will expand the path described by
+    "g:TagsParserTagsPath into a valid tag path
+    autocmd VimEnter * call TagsParser#Debug(2, "VimEnter - ".
+          \ expand("<amatch>")) | call TagsParser#ExpandTagsPath()
 
-      augroup TagsParserBufEnterWindowNotOpen
-        autocmd BufEnter ?* call TagsParser#PerformOp("open", "")
-      augroup END
-    else
-      augroup TagsParserAutoCommands
-        autocmd!
-        "setup an autocommand that will expand the path described by 
-        "g:TagsParserTagsPath into a valid tag path
-        autocmd VimEnter * call TagsParser#ExpandTagsPath()
+    "setup an autocommand so that when a file is written to it writes a tag
+    "file if it a file that is somewhere within the tags path or the
+    "g:TagsParserTagsPath path
+    autocmd BufWritePost ?* call TagsParser#Debug(2, "BufWritePost - ".
+          \ expand("<amatch>")) | call TagsParser#PerformOp("tag", "")
+  augroup END
 
-        "setup an autocommand so that when a file is written to it writes a tag
-        "file if it a file that is somewhere within the tags path or the
-        "g:TagsParserTagsPath path
-        autocmd BufWritePost ?* call TagsParser#PerformOp("tag", "")
-      augroup END
-    endif " if g:TagsParserNoTagWindow == 0
-  endif " if g:TagsParserOff != 0
+  if g:TagsParserNoTagWindow == 0
+    augroup TagsParserBufEnterWindowNotOpen
+      autocmd BufEnter ?* call TagsParser#Debug(2, "BufEnter - ".
+          \ expand("<amatch>")) | call TagsParser#PerformOp("open", "")
+    augroup END
+  endif
+
+  " Autocommands that will always be installed, unless the plugin is off.
+  augroup TagsParserAlwaysOnCommands
+    " Setup an autocommand that will tag a file when it is opened
+    if g:TagsParserFileReadTag == 1
+      autocmd BufRead ?* call TagsParser#Debug(2, "BufRead - ".
+          \ expand("<amatch>")) | call TagsParser#PerformOp("tag", "")
+    endif
+
+    " Setup an autocommand that will remove any tag file that exists, when it 
+    " is opened, if the file is not in a project path.
+    if g:TagsParserFileReadDeleteTag == 1
+      autocmd BufRead ?* call TagsParser#Debug(2, "BufRead - ".
+          \ expand("<amatch>")) | call TagsParser#PerformOp("deletetag", "")
+    endif
+  augroup END
 
   let g:TagsParserOff = 0
 endfunction
 " >>>
 " TagsParserCOpen - opens The quickfix window nicely <<<
 function! TagsParser#COpen(...)
+  call TagsParser#Debug(1, "TagsParser#COpen(...)")
   let l:windowClosed = 0
 
   "if the tag window is open, close it
@@ -2451,13 +2597,13 @@ function! TagsParser#COpen(...)
 
   "now open the quickfix window
   if(a:0 == 1)
-    exec "copen " . a:1
+    exec TagsParser#Exec("copen " . a:1)
   else
-    exec "copen"
+    exec TagsParser#Exec("copen")
   endif
 
   "go back to the original window
-  exec bufwinnr(l:curBuf) . "wincmd w"
+  exec TagsParser#Exec(bufwinnr(l:curBuf) . "wincmd w")
 
   "go to the first error
   silent "cfirst"
@@ -2470,6 +2616,7 @@ endfunction
 " >>>
 " TagsParserCWindow - opens The quickfix window nicely <<<
 function! TagsParser#CWindow(...)
+  call TagsParser#Debug(1, "TagsParser#COpen(...)")
   let l:windowClosed = 0
 
   "if the tag window is open, close it
@@ -2483,14 +2630,14 @@ function! TagsParser#CWindow(...)
 
   "now open the quickfix window
   if(a:0 == 1)
-    exec "cwindow " . a:1
+    exec TagsParser#Exec("cwindow " . a:1)
   else
-    exec "cwindow"
+    exec TagsParser#Exec("cwindow")
   endif
   
   "go back to the original window, if we actually changed windows
   if l:curBuf != bufnr("%")
-    exec bufwinnr(l:curBuf) . "wincmd w"
+    exec TagsParser#Exec(bufwinnr(l:curBuf) . "wincmd w")
 
     "go to the first error
     silent "cfirst"
@@ -2504,6 +2651,7 @@ endfunction
 " >>>
 " TagsParserBufSwitch - Cycles through buffers in one window <<<
 function! TagsParser#BufSwitch(reverse)
+  call TagsParser#Debug(1, "TagsParser#BufSwitch(" . a:reverse . ")")
   " Initialize the next buffer variable to the current buffer.
   let l:nextBuf = bufnr("%")
 
@@ -2529,7 +2677,8 @@ function! TagsParser#BufSwitch(reverse)
     " Finally, check to see if the new buffer is modifiable, if it is then 
     " move to it.
     if getbufvar(l:nextBuf, "&modifiable") && buflisted(l:nextBuf)
-      exec l:nextBuf . "buffer"
+      echomsg l:nextBuf . "buffer"
+      exec TagsParser#Exec(l:nextBuf . "buffer")
       return
     endif
   endwhile " while 1
@@ -2537,12 +2686,13 @@ endfunction
 " >>>
 " TagsParserTabBufferOpen - Opens files not yet opened in new tabs <<<
 function! TagsParser#TabBufferOpen()
+  call TagsParser#Debug(1, "TagsParser#TabBufferOpen()")
   if v:version >= 700
     " Gather a list of all buffers currently opened.
     let l:bufList = []
     for l:index in range(tabpagenr("$"))
-      let l:tab = l:index + 1
-      call extend(l:bufList, tabpagebuflist(l:tab))
+      let l:index += 1
+      call extend(l:bufList, tabpagebuflist(l:index))
     endfor
 
     " Now, if we are at the end of the list of tabs find the first unopened 
@@ -2553,7 +2703,7 @@ function! TagsParser#TabBufferOpen()
         " Before we open the new tab, move to the last tab so that the new one 
         " is at the end of the current list of tabs.
         tablast
-        exec "tabedit " . bufname(l:buf)
+        exec TagsParser#Exec("tabedit " . bufname(l:buf))
         return
       endif 
     endfor " for i in range(bufnr('$'))
@@ -2577,14 +2727,39 @@ endfunction
 " >>>
 " TagsParserWindowName - returns the name of the current tag buffer <<<
 function! TagsParser#WindowName()
-  return g:TagsParserWindowName . " " . tabpagenr()
+  call TagsParser#Debug(1, "TagsParser#WindowName() = " . g:TagsParserWindowName . tabpagenr())
+  return g:TagsParserWindowName . tabpagenr()
+endfunction
+" >>>
+" TagsParserExists- performs an exists test, and enables debugging. <<<
+function! TagsParser#Exists(var)
+  "return TagsParser#Debug(2, "exists(" . a:var . ") = " . a:val)
+  "return "exists(a:var)"
+endfunction!
+" >>>
+" TagsParserExec - Used to debug an exec command. <<<
+function! TagsParser#Exec(command)
+  call TagsParser#Debug(3, a:command)
+  return a:command
+endfunction!
+" >>>
+" TagsParserDebug - prints debugging messages if debug is enabled. <<<
+function! TagsParser#Debug(level, string)
+  if a:level <= g:TagsParserDebugFlag
+    if g:TagsParserDebugTime == 1
+      echomsg a:string . " ++ " . strftime("%X")
+    elseif
+      echomsg a:string
+    endif
+  endif
 endfunction
 " >>>
 
 " Perl Functions
 
 " TagsParserPerlFinishPerformOp - Call the correct op on files in the list <<<
-function! TagsParser#TagsParerPerlFinishPerformOp(fileList)
+function! TagsParser#PerlFinishPerformOp(fileList)
+  call TagsParser#Debug(1, "TagsParser#PerlFinishPerformOp(" . a:fileList . ")")
 perl << PerlFunc
   use strict;
   use warnings;
@@ -2601,6 +2776,7 @@ endfunction
 " >>>
 " TagsParserPerlDisplayTags - Display perl tags data <<<
 function! TagsParser#PerlDisplayTags()
+  call TagsParser#Debug(1, "TagsParser#PerlDisplayTags()")
 perl << PerlFunc
   use strict;
   use warnings;
@@ -2851,6 +3027,7 @@ endfunction
 " >>>
 " TagsParserPerlParseFile - Gather perl tags data <<<
 function! TagsParser#PerlParseFile(tagFileName)
+  call TagsParser#Debug(1, "TagsParser#PerlParseFile(" . a:tagFileName . ")")
 perl << PerlFunc
   use strict;
   use warnings;
@@ -2920,8 +3097,10 @@ perl << PerlFunc
     $fields =~ s/\tfile://;
 
     # Verify that a separator exists.
+    ($success, my $prjKey) = VIM::Eval("TagsParser#GetProject()");
+    die "Failed to retrieve project" if !$success;
     ($success, my $separator) = VIM::Eval(
-      "TagsParser#GetQualifiedTagSeparator()");
+      "TagsParser#GetQualifiedTagSeparator($prjKey)");
     die "Failed to retrieve qualified tag separator" if !$success;
 
     if (length($separator) != 0) {
@@ -3026,6 +3205,7 @@ endfunction
 " >>>
 " TagsParserPerlSelectTag - Use perl data move to current tag <<<
 function! TagsParser#PerlSelectTag()
+  call TagsParser#Debug(1, "TagsParser#PerlSelectTag()")
 perl << PerlFunc
   use strict;
   use warnings;
@@ -3093,14 +3273,15 @@ perl << PerlFunc
 
     # go to the proper window, go the correct line, unfold it (if necessary),
     # move to the correct word (the tag) and finally, set a mark
-    VIM::DoCommand 'exec bufwinnr(s:origFileName) . "wincmd w"';
+    VIM::DoCommand
+      'exec TagsParser#Exec(bufwinnr(s:origFileName) . "wincmd w")';
     VIM::DoCommand $globalPrintData[$indexNum][1]{"line"};
 
     # now find out where the tag is on the current line, and move to it if a
     # valid match is found
     VIM::DoCommand "let l:position = match(getline('.'), '\\s\\zs" .
       $globalPrintData[$indexNum][1]{"tag"} . "') | if l:position != -1 | " .
-      "exec 'normal! 0' . l:position . 'l' | endif";
+      "exec TagsParser#Exec('normal! 0' . l:position . 'l') | endif";
 
     VIM::DoCommand "if foldclosed('.') != -1 | .foldopen | endif";
     VIM::DoCommand "normal! m\'";
@@ -3115,6 +3296,7 @@ endfunction
 " >>>
 " TagsParserPerlFindTag - Find currently highlighted tag in perl tag data <<<
 function! TagsParser#PerlFindTag(curPattern, curLine, curWord)
+  call TagsParser#Debug(1, "TagsParser#PerlFindTag(" . a:curPattern . ", " . a:curLine . ", " . a:curWord . ")")
 perl << PerlFunc
   use strict;
   use warnings;
